@@ -86,13 +86,13 @@ export default function App() {
             the world's foresight.
           </p>
           <div className="flex space-x-4">
-            <button className="bg-gradient-to-r from-pink-400 to-purple-500 text-white px-6 py-3 rounded-xl shadow hover:opacity-90">
+            <button className="bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-white px-6 py-3 rounded-xl shadow hover:opacity-90">
               浏览市场
             </button>
-            <button className="border border-purple-400 text-purple-600 px-6 py-3 rounded-xl hover:bg-purple-50">
+            <button className="border border-[var(--accent-to)] text-[var(--accent)] px-6 py-3 rounded-xl hover:bg-purple-50">
               创建预测
             </button>
-            <button className="border border-green-400 text-green-600 px-6 py-3 rounded-xl hover:bg-green-50">
+            <button className="border border-[var(--accent-to)] text-[var(--accent)] px-6 py-3 rounded-xl hover:bg-purple-50">
               我的预测
             </button>
           </div>
@@ -101,7 +101,7 @@ export default function App() {
 
       <section className="relative z-10 py-16 bg-white/60 backdrop-blur-sm">
         <h3 className="text-3xl font-bold text-center mb-10 text-purple-700">
-          让预测更透明，让决策更聪明
+          预测市场概览
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-10">
           {[

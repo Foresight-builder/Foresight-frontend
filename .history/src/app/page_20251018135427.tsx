@@ -80,20 +80,20 @@ export default function App() {
           <h2 className="text-5xl font-extrabold text-purple-700 mb-4">
             Foresight
           </h2>
-          <p className="text-2xl md:text-3xl text-gray-600 max-w-2xl mb-8">
+          <p className="text-lg text-gray-600 max-w-2xl mb-8">
             Your insight,
             <br />
-            the world's foresight.
+            the world's forsight
           </p>
           <div className="flex space-x-4">
             <button className="bg-gradient-to-r from-pink-400 to-purple-500 text-white px-6 py-3 rounded-xl shadow hover:opacity-90">
-              浏览市场
+              开始捐赠
             </button>
             <button className="border border-purple-400 text-purple-600 px-6 py-3 rounded-xl hover:bg-purple-50">
-              创建预测
+              批量捐赠
             </button>
             <button className="border border-green-400 text-green-600 px-6 py-3 rounded-xl hover:bg-green-50">
-              我的预测
+              爱心广场
             </button>
           </div>
         </div>
@@ -101,29 +101,29 @@ export default function App() {
 
       <section className="relative z-10 py-16 bg-white/60 backdrop-blur-sm">
         <h3 className="text-3xl font-bold text-center mb-10 text-purple-700">
-          让预测更透明，让决策更聪明
+          平台特色
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-10">
           {[
             {
-              title: "事件预测市场",
-              desc: "创建事件，交易 Yes/No 份额，价格反映概率",
-              icon: "🎯",
+              title: "去中心化透明",
+              desc: "基于智能合约，所有交易公开透明、无法篡改",
+              icon: "🛡",
             },
             {
-              title: "自动做市商",
-              desc: "基于 CPMM 提供流动性，随时买卖无需撮合",
-              icon: "⚙️",
+              title: "资金可追溯",
+              desc: "每笔捐款都有链上记录，确保善款去向清晰",
+              icon: "👁️",
             },
             {
-              title: "代币化头寸",
-              desc: "持仓可转让、合成或抵押，用途更灵活",
-              icon: "🎟️",
+              title: "直接援助",
+              desc: "捐款直达受益人，无中间环节",
+              icon: "🤝",
             },
             {
-              title: "结算与预言机",
-              desc: "采用可信预言机与治理流程进行结果结算",
-              icon: "🔮",
+              title: "实时统计",
+              desc: "随时查看进度与资金使用情况",
+              icon: "📊",
             },
           ].map((item, i) => (
             <div
@@ -139,7 +139,7 @@ export default function App() {
       </section>
 
       <footer className="relative z-10 text-center py-6 text-gray-500 bg-white/50">
-        © 2025 Foresight 预测市场 | 用交易表达信念，价格反映概率 🎯
+        © 2025 Foresight 慈善平台 | 爱与信任，让未来更光明 💖
       </footer>
     </div>
   );

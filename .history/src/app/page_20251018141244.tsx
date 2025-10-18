@@ -101,7 +101,7 @@ export default function App() {
 
       <section className="relative z-10 py-16 bg-white/60 backdrop-blur-sm">
         <h3 className="text-3xl font-bold text-center mb-10 text-purple-700">
-          让预测更透明，让决策更聪明
+          为什么选择我们
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-10">
           {[

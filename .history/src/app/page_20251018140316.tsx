@@ -101,7 +101,7 @@ export default function App() {
 
       <section className="relative z-10 py-16 bg-white/60 backdrop-blur-sm">
         <h3 className="text-3xl font-bold text-center mb-10 text-purple-700">
-          让预测更透明，让决策更聪明
+          平台特色
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-10">
           {[
@@ -123,7 +123,7 @@ export default function App() {
             {
               title: "结算与预言机",
               desc: "采用可信预言机与治理流程进行结果结算",
-              icon: "🔮",
+              icon: "�",
             },
           ].map((item, i) => (
             <div
@@ -139,7 +139,7 @@ export default function App() {
       </section>
 
       <footer className="relative z-10 text-center py-6 text-gray-500 bg-white/50">
-        © 2025 Foresight 预测市场 | 用交易表达信念，价格反映概率 🎯
+        © 2025 Foresight 慈善平台 | 爱与信任，让未来更光明 💖
       </footer>
     </div>
   );
