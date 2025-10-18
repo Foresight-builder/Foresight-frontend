@@ -30,6 +30,13 @@ export default function TopNavBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // 新增：用于菜单定位与门户内点击判断
+  const avatarRef = useRef<HTMLImageElement | null>(null);
+  const menuContentRef = useRef<HTMLDivElement | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   // 新增：网络与余额状态
   const [chainId, setChainId] = useState<string | null>(null);
   const [balanceEth, setBalanceEth] = useState<string | null>(null);
@@ -218,12 +225,16 @@ export default function TopNavBar() {
     }
   };
 
-  // 外部点击与 Esc 关闭菜单
+  // 外部点击与 Esc 关闭菜单（兼容门户内菜单）
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
-      if (!menuRef.current) return;
-      if (!(e.target instanceof Node)) return;
-      if (!menuRef.current.contains(e.target)) setMenuOpen(false);
+      const target = e.target as Node | null;
+      if (!target) return;
+      // 点击头像或菜单内容不关闭
+      if (avatarRef.current && avatarRef.current.contains(target)) return;
+      if (menuContentRef.current && menuContentRef.current.contains(target))
+        return;
+      setMenuOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setMenuOpen(false);
@@ -235,6 +246,34 @@ export default function TopNavBar() {
       document.removeEventListener("keydown", onKey);
     };
   }, []);
+
+  // 新增：根据头像位置计算菜单的固定坐标
+  useEffect(() => {
+    const updateMenuPosition = () => {
+      if (!avatarRef.current) return;
+      const rect = avatarRef.current.getBoundingClientRect();
+      const menuWidth = 256; // w-64
+      const gap = 8; // 8px 间距
+      let left = rect.right - menuWidth;
+      let top = rect.bottom + gap;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      left = Math.max(8, Math.min(left, vw - menuWidth - 8));
+      top = Math.max(8, Math.min(top, vh - 8));
+      setMenuPos({ top, left });
+    };
+
+    if (menuOpen) {
+      updateMenuPosition();
+      const handler = () => updateMenuPosition();
+      window.addEventListener("resize", handler);
+      window.addEventListener("scroll", handler, true);
+      return () => {
+        window.removeEventListener("resize", handler);
+        window.removeEventListener("scroll", handler, true);
+      };
+    }
+  }, [menuOpen]);
 
   // 弹窗元素（通过 Portal 渲染，避免被任何父级 z-index/overflow 影响）
   const modal = connectError ? (
@@ -355,68 +394,83 @@ export default function TopNavBar() {
                   if (e.key === "Enter" || e.key === " ")
                     setMenuOpen((v) => !v);
                 }}
+                ref={avatarRef}
               />
             </div>
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full ring-2 ring-white dark:ring-[#0a0a0a]" />
-            {menuOpen && (
-              <div
-                className="absolute right-0 top-12 w-64 bg-white/90 backdrop-blur-md border border-[rgba(168,85,247,0.25)] rounded-xl shadow-xl p-2"
-                role="menu"
-                aria-label="用户菜单"
-              >
-                <div className="px-3 py-2 mb-2 rounded-lg bg-white/60 flex items-center justify-between">
-                  <div className="text-xs text-black/80">
-                    {formatAddress(account)}
-                    <span className="ml-2 inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-black">
-                      {networkName(chainId)}
-                    </span>
+            {/* 菜单通过 Portal 渲染为最高优先级 */}
+            {menuOpen &&
+              mounted &&
+              createPortal(
+                <>
+                  {/* 点击遮罩关闭，避免被父级样式影响 */}
+                  <div
+                    className="fixed inset-0 z-[9998]"
+                    onClick={() => setMenuOpen(false)}
+                  />
+                  <div
+                    ref={menuContentRef}
+                    className="fixed z-[9999] w-64 bg-white/90 backdrop-blur-md border border-[rgba(168,85,247,0.25)] rounded-xl shadow-2xl p-2"
+                    role="menu"
+                    aria-label="用户菜单"
+                    style={{ top: menuPos.top, left: menuPos.left }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="px-3 py-2 mb-2 rounded-lg bg-white/60 flex items-center justify-between">
+                      <div className="text-xs text-black/80">
+                        {formatAddress(account)}
+                        <span className="ml-2 inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-black">
+                          {networkName(chainId)}
+                        </span>
+                      </div>
+                      <div className="text-xs font-semibold text-black">
+                        {balanceLoading
+                          ? "..."
+                          : balanceEth
+                          ? `${balanceEth} ETH`
+                          : "--"}
+                      </div>
+                    </div>
+                    <button
+                      onClick={updateNetworkInfo}
+                      className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-purple-50 text-black"
+                    >
+                      <Wallet className="w-4 h-4 text-black" />
+                      <span>刷新余额</span>
+                    </button>
+                    <button
+                      onClick={copyAddress}
+                      className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-purple-50 text-black"
+                    >
+                      <Copy className="w-4 h-4 text-black" />
+                      <span>{copied ? "已复制 ✓" : "复制地址"}</span>
+                    </button>
+                    <button
+                      onClick={openOnExplorer}
+                      className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-purple-50 text-black"
+                    >
+                      <ExternalLink className="w-4 h-4 text-black" />
+                      <span>在区块浏览器查看</span>
+                    </button>
+                    <div className="my-1 border-t border-purple-100/60" />
+                    <button
+                      onClick={switchToSepolia}
+                      className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-purple-50 text-black"
+                    >
+                      <Wallet className="w-4 h-4 text-black" />
+                      <span>切换到 Sepolia 网络</span>
+                    </button>
+                    <button
+                      onClick={disconnectWallet}
+                      className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-purple-50 text-black"
+                    >
+                      <LogOut className="w-4 h-4 text-black" />
+                      <span>断开连接</span>
+                    </button>
                   </div>
-                  <div className="text-xs font-semibold text-black">
-                    {balanceLoading
-                      ? "..."
-                      : balanceEth
-                      ? `${balanceEth} ETH`
-                      : "--"}
-                  </div>
-                </div>
-                <button
-                  onClick={updateNetworkInfo}
-                  className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-purple-50 text-black"
-                >
-                  <Wallet className="w-4 h-4 text-black" />
-                  <span>刷新余额</span>
-                </button>
-                <button
-                  onClick={copyAddress}
-                  className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-purple-50 text-black"
-                >
-                  <Copy className="w-4 h-4 text-black" />
-                  <span>{copied ? "已复制 ✓" : "复制地址"}</span>
-                </button>
-                <button
-                  onClick={openOnExplorer}
-                  className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-purple-50 text-black"
-                >
-                  <ExternalLink className="w-4 h-4 text-black" />
-                  <span>在区块浏览器查看</span>
-                </button>
-                <div className="my-1 border-t border-purple-100/60" />
-                <button
-                  onClick={switchToSepolia}
-                  className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-purple-50 text-black"
-                >
-                  <Wallet className="w-4 h-4 text-black" />
-                  <span>切换到 Sepolia 网络</span>
-                </button>
-                <button
-                  onClick={disconnectWallet}
-                  className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-purple-50 text-black"
-                >
-                  <LogOut className="w-4 h-4 text-black" />
-                  <span>断开连接</span>
-                </button>
-              </div>
-            )}
+                </>,
+                document.body
+              )}
           </div>
         ) : (
           <button
