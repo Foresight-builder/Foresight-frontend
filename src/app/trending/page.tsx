@@ -24,18 +24,21 @@ export default function TrendingPage() {
   // 侧边栏数据
   const sidebarData = {
     categories: [
-      { name: "市场波动险", icon: "📊", count: 12 },
-      { name: "合约安全险", icon: "🔒", count: 8 },
-      { name: "交易所险", icon: "🏦", count: 6 },
       { name: "跨链风险险", icon: "🔗", count: 4 },
       { name: "NFT保护险", icon: "🖼️", count: 9 },
       { name: "质押风险险", icon: "💰", count: 7 },
+      { name: "稳定币风险险", icon: "💵", count: 5 },
+      { name: "去中心化协议险", icon: "⚙️", count: 7 },
+      { name: "隐私协议险", icon: "🕵️", count: 3 },
+      { name: "预言机风险险", icon: "🔮", count: 2 },
     ],
     trendingProducts: [
       { name: "BTC波动险", volume: "245 ETH", trend: "up" },
       { name: "ETH智能合约险", volume: "189 ETH", trend: "up" },
       { name: "交易所安全险", volume: "320 ETH", trend: "down" },
-      { name: "NFT价值险", volume: "98 ETH", trend: "up" },
+      { name: "稳定币脱锚险", volume: "150 ETH", trend: "down" },
+      { name: "跨链桥安全险", volume: "210 ETH", trend: "up" },
+      { name: "去中心化协议险", volume: "133 ETH", trend: "up" },
     ],
     platformStats: {
       totalInsured: "1,208 ETH",
@@ -263,7 +266,7 @@ export default function TrendingPage() {
       <motion.div
         className={`fixed left-0 top-0 h-full bg-gradient-to-b from-purple-50 to-pink-50 shadow-2xl z-20 transition-all duration-300 ${
           sidebarCollapsed ? "w-20" : "w-80"
-        }`}
+        } overflow-y-auto`}
         initial={{ x: -320 }}
         animate={{ x: 0 }}
         transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
