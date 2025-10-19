@@ -18,6 +18,8 @@ declare global {
   }
 }
 
+const LOGOUT_FLAG = "fs_wallet_logged_out";
+
 export default function TopNavBar() {
   const pathname = usePathname();
 
@@ -55,17 +57,34 @@ export default function TopNavBar() {
     }
     setHasProvider(true);
 
-    // 初始账户状态（如果之前已授权）
-    ethereum
-      .request({ method: "eth_accounts" })
-      .then((accounts: string[]) => {
-        setAccount(accounts && accounts.length > 0 ? accounts[0] : null);
-      })
-      .catch(() => {});
+    // 初始账户状态（如果之前已授权，且未在本会话主动退出）
+    const loggedOut =
+      typeof window !== "undefined" &&
+      sessionStorage.getItem(LOGOUT_FLAG) === "true";
+
+    if (!loggedOut) {
+      ethereum
+        .request({ method: "eth_accounts" })
+        .then((accounts: string[]) => {
+          setAccount(accounts && accounts.length > 0 ? accounts[0] : null);
+        })
+        .catch(() => {});
+    } else {
+      // 明确清理本地状态，避免复用旧账户数据
+      setAccount(null);
+      setChainId(null);
+      setBalanceEth(null);
+    }
 
     // 账户变更监听
     const handleAccountsChanged = (accounts: string[]) => {
-      setAccount(accounts && accounts.length > 0 ? accounts[0] : null);
+      const next = accounts && accounts.length > 0 ? accounts[0] : null;
+      setAccount(next);
+      if (!next) {
+        // 清理链与余额信息，避免复用旧数据
+        setChainId(null);
+        setBalanceEth(null);
+      }
     };
     ethereum.on?.("accountsChanged", handleAccountsChanged);
     return () => {
@@ -99,6 +118,8 @@ export default function TopNavBar() {
         return;
       }
       setHasProvider(true);
+      // 重新连接前移除登出标记，避免静默复用
+      sessionStorage.removeItem(LOGOUT_FLAG);
       const accounts: string[] = await ethereum.request({
         method: "eth_requestAccounts",
       });
@@ -122,9 +143,24 @@ export default function TopNavBar() {
   const formatAddress = (addr: string) =>
     `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
-  // 头像菜单：复制与断开
-  const disconnectWallet = () => {
+  // 头像菜单：复制与断开（并尝试撤销权限与清理本地状态）
+  const disconnectWallet = async () => {
+    const ethereum =
+      typeof window !== "undefined" ? window.ethereum : undefined;
+    try {
+      await ethereum?.request?.({
+        method: "wallet_revokePermissions",
+        params: [{ eth_accounts: {} }],
+      });
+    } catch (e) {
+      console.warn("Revoke permissions unsupported or failed:", e);
+    }
+    // 设置本会话登出标记，阻止后续静默恢复
+    sessionStorage.setItem(LOGOUT_FLAG, "true");
+    // 清理本地状态，避免复用
     setAccount(null);
+    setChainId(null);
+    setBalanceEth(null);
     setMenuOpen(false);
   };
 
@@ -319,7 +355,7 @@ export default function TopNavBar() {
 
   return (
     <nav className="relative z-10 flex items-center justify-between px-10 py-5">
-      <div className="flex items-center">
+      <div className="flex items-center -ml-3">
         <img src="/images/logo.png" alt="logo" className="w-14 h-14" />
         <div className="ml-3">
           <h1
@@ -331,7 +367,7 @@ export default function TopNavBar() {
           <span className="text-sm text-black">Insight to outcome</span>
         </div>
       </div>
-      <div className="space-x-8 hidden md:flex">
+      <div className="space-x-8 hidden md:flex text-lg font-semibold">
         <Link
           className="hover:text-black"
           href="/"
