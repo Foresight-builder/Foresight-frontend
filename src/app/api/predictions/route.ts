@@ -1,7 +1,6 @@
 // 预测事件API路由 - 处理GET和POST请求
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase, type Prediction } from '@/lib/database';
-import { verifyToken } from '@/lib/auth';
+import { supabase, supabaseAdmin, type Prediction } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,32 +12,35 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const limit = searchParams.get('limit');
 
-    const db = getDatabase();
+    // 构建Supabase查询
+    let query = supabase
+      .from('predictions')
+      .select('*')
+      .order('created_at', { ascending: false });
     
-    // 构建查询条件
-    let whereClause = "WHERE 1=1";
-    const params: any[] = [];
-    
+    // 添加过滤条件
     if (category) {
-      whereClause += " AND category = ?";
-      params.push(category);
+      query = query.eq('category', category);
     }
     
     if (status) {
-      whereClause += " AND status = ?";
-      params.push(status);
+      query = query.eq('status', status);
     }
     
-    let limitClause = "";
     if (limit) {
       const limitNum = parseInt(limit);
-      limitClause = "LIMIT ?";
-      params.push(limitNum);
+      query = query.limit(limitNum);
     }
     
-    const query = `SELECT * FROM predictions ${whereClause} ORDER BY createdAt DESC ${limitClause}`;
-    const stmt = db.prepare(query);
-    const predictions = stmt.all(...params) as Prediction[];
+    const { data: predictions, error } = await query;
+
+    if (error) {
+      console.error('获取预测事件列表失败:', error);
+      return NextResponse.json(
+        { success: false, message: '获取预测事件列表失败' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -57,15 +59,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // 验证JWT令牌（创建预测事件需要登录）
-    const authResult = await verifyToken(request);
-    if (!authResult.success) {
-      return NextResponse.json(
-        { success: false, error: '请先登录' },
-        { status: 401 }
-      );
-    }
-
     // 解析请求体中的JSON数据
     const body = await request.json();
     
@@ -92,28 +85,47 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const db = getDatabase();
+    // 插入新的预测事件到Supabase数据库
+    // 先获取当前最大id，然后手动指定id来避免序列冲突
+    const { data: maxIdData, error: maxIdError } = await supabaseAdmin
+      .from('predictions')
+      .select('id')
+      .order('id', { ascending: false })
+      .limit(1);
     
-    // 插入新的预测事件到数据库
-    const stmt = db.prepare(`
-      INSERT INTO predictions 
-      (title, description, category, deadline, minStake, criteria, referenceUrl, status, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'active', datetime('now'), datetime('now'))
-    `);
+    if (maxIdError) {
+      console.error('获取最大ID失败:', maxIdError);
+      return NextResponse.json(
+        { success: false, message: '创建预测事件失败' },
+        { status: 500 }
+      );
+    }
     
-    const result = stmt.run(
-      body.title,
-      body.description,
-      body.category,
-      body.deadline,
-      body.minStake,
-      body.criteria,
-      body.referenceUrl || ''
-    );
+    const nextId = maxIdData.length > 0 ? maxIdData[0].id + 1 : 1;
     
-    // 获取新创建的预测事件
-    const getStmt = db.prepare('SELECT * FROM predictions WHERE id = ?');
-    const newPrediction = getStmt.get(result.lastInsertRowid) as Prediction;
+    const { data: newPrediction, error } = await supabaseAdmin
+      .from('predictions')
+      .insert({
+        id: nextId, // 手动指定id，避免序列冲突
+        title: body.title,
+        description: body.description,
+        category: body.category,
+        deadline: body.deadline,
+        min_stake: body.minStake,
+        criteria: body.criteria,
+        reference_url: body.reference_url || '',
+        status: 'active'
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('创建预测事件失败:', error);
+      return NextResponse.json(
+        { success: false, message: '创建预测事件失败' },
+        { status: 500 }
+      );
+    }
     
     // 返回成功响应
     return NextResponse.json({
@@ -124,6 +136,7 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     // 错误处理
+    console.error('创建预测事件异常:', error);
     return NextResponse.json(
       { success: false, message: '创建预测事件失败', error: error.message },
       { status: 500 }

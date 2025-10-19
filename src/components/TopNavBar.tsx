@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
-import { Copy, LogOut, Wallet, ExternalLink } from "lucide-react";
+import { Copy, Wallet, ExternalLink } from "lucide-react";
 
 declare global {
   interface Window {
@@ -17,8 +17,6 @@ declare global {
     };
   }
 }
-
-const LOGOUT_FLAG = "fs_wallet_logged_out";
 
 export default function TopNavBar() {
   const pathname = usePathname();
@@ -57,24 +55,13 @@ export default function TopNavBar() {
     }
     setHasProvider(true);
 
-    // 初始账户状态（如果之前已授权，且未在本会话主动退出）
-    const loggedOut =
-      typeof window !== "undefined" &&
-      sessionStorage.getItem(LOGOUT_FLAG) === "true";
-
-    if (!loggedOut) {
-      ethereum
-        .request({ method: "eth_accounts" })
-        .then((accounts: string[]) => {
-          setAccount(accounts && accounts.length > 0 ? accounts[0] : null);
-        })
-        .catch(() => {});
-    } else {
-      // 明确清理本地状态，避免复用旧账户数据
-      setAccount(null);
-      setChainId(null);
-      setBalanceEth(null);
-    }
+    // 初始账户状态
+    ethereum
+      .request({ method: "eth_accounts" })
+      .then((accounts: string[]) => {
+        setAccount(accounts && accounts.length > 0 ? accounts[0] : null);
+      })
+      .catch(() => {});
 
     // 账户变更监听
     const handleAccountsChanged = (accounts: string[]) => {
@@ -118,8 +105,6 @@ export default function TopNavBar() {
         return;
       }
       setHasProvider(true);
-      // 重新连接前移除登出标记，避免静默复用
-      sessionStorage.removeItem(LOGOUT_FLAG);
       const accounts: string[] = await ethereum.request({
         method: "eth_requestAccounts",
       });
@@ -155,9 +140,7 @@ export default function TopNavBar() {
     } catch (e) {
       console.warn("Revoke permissions unsupported or failed:", e);
     }
-    // 设置本会话登出标记，阻止后续静默恢复
-    sessionStorage.setItem(LOGOUT_FLAG, "true");
-    // 清理本地状态，避免复用
+    // 清理本地状态
     setAccount(null);
     setChainId(null);
     setBalanceEth(null);
@@ -495,13 +478,6 @@ export default function TopNavBar() {
                     >
                       <Wallet className="w-4 h-4 text-black" />
                       <span>切换到 Sepolia 网络</span>
-                    </button>
-                    <button
-                      onClick={disconnectWallet}
-                      className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-purple-50 text-black"
-                    >
-                      <LogOut className="w-4 h-4 text-black" />
-                      <span>断开连接</span>
                     </button>
                   </div>
                 </>,

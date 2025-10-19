@@ -53,30 +53,7 @@ export function getDatabase(): Database.Database {
       insertCategory.run(category);
     });
     
-    // 创建用户表
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        wallet_address TEXT UNIQUE,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    
-    // 创建会话表（用于JWT黑名单）
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        token_hash TEXT UNIQUE NOT NULL,
-        expires_at TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-      )
-    `);
+
     
     // 创建押注记录表
     db.exec(`
@@ -167,23 +144,7 @@ export interface Category {
   name: string;
 }
 
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-  password_hash: string;
-  wallet_address?: string;
-  created_at: string;
-  updated_at: string;
-}
 
-export interface Session {
-  id: number;
-  user_id: number;
-  token_hash: string;
-  expires_at: string;
-  created_at: string;
-}
 
 export interface Bet {
   id: number;
