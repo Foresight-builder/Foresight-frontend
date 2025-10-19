@@ -13,6 +13,9 @@ import {
   BarChart3,
   Wallet,
   Gift,
+  Search,
+  ChevronsUpDown,
+  Check,
 } from "lucide-react";
 import TopNavBar from "@/components/TopNavBar";
 import Link from "next/link";
@@ -108,6 +111,13 @@ export default function TrendingPage() {
   ];
 
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [sortOption, setSortOption] = useState<"default" | "minInvestment-asc" | "insured-desc">("default");
+  const [displayCount, setDisplayCount] = useState(9);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement | null>(null);
 
   // 自动轮播效果
   useEffect(() => {
@@ -127,6 +137,46 @@ export default function TrendingPage() {
     );
   };
 
+  // 输入关键字时，自动定位到匹配的热点事件（使用防抖）
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim().toLowerCase());
+    }, 200);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const q = debouncedQuery;
+    if (!q) return;
+    const idx = heroEvents.findIndex(
+      (e) =>
+        e.title.toLowerCase().includes(q) ||
+        e.description.toLowerCase().includes(q) ||
+        e.category.toLowerCase().includes(q)
+    );
+    if (idx >= 0) setCurrentHeroIndex(idx);
+  }, [debouncedQuery]);
+
+  // 选择类型时，自动定位到该类型的第一个热点事件
+  useEffect(() => {
+    if (!selectedCategory) return;
+    const idx = heroEvents.findIndex((e) => e.category === selectedCategory);
+    if (idx >= 0) setCurrentHeroIndex(idx);
+  }, [selectedCategory]);
+
+  // 点击外部时关闭排序菜单
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!sortOpen) return;
+      const el = sortRef.current;
+      if (el && !el.contains(e.target as Node)) {
+        setSortOpen(false);
+      }
+    }
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [sortOpen]);
+ 
   useEffect(() => {
     const maybeCanvas = canvasRef.current;
     if (!maybeCanvas) return;
@@ -257,10 +307,170 @@ export default function TrendingPage() {
     criteria: prediction.criteria
   }));
 
+  // 搜索与类型筛选
+  const q = searchQuery.toLowerCase().trim();
+  const hasQuery = q.length > 0;
+  const hasCategory = !!selectedCategory;
+  const filteredHeroEvents = heroEvents.filter(
+    (e) =>
+      (!hasQuery ||
+        e.title.toLowerCase().includes(q) ||
+        e.description.toLowerCase().includes(q) ||
+        e.category.toLowerCase().includes(q)) &&
+      (!hasCategory || e.category === selectedCategory)
+  );
+  const filteredAllEvents = allEvents.filter(
+    (p) =>
+      (!hasQuery ||
+        p.title.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q) ||
+        (p.tag || "").toLowerCase().includes(q)) &&
+      (!hasCategory || (p.tag || "") === selectedCategory)
+  );
+  const displayEvents = hasQuery || hasCategory ? filteredAllEvents : allEvents;
+  const parseEth = (s: string) => parseFloat(String(s ?? '').replace(/[^0-9.]/g, '')) || 0;
+  const sortedEvents = [...displayEvents].sort((a, b) => {
+    if (sortOption === 'minInvestment-asc') {
+      return parseEth(a.minInvestment) - parseEth(b.minInvestment);
+    }
+    if (sortOption === 'insured-desc') {
+      return parseEth(b.insured) - parseEth(a.insured);
+    }
+    return 0;
+  });
+
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-pink-50 overflow-hidden text-black">
       <canvas ref={canvasRef} className="absolute inset-0 z-0" />
       <TopNavBar />
+
+      {/* 搜索热点事件与产品 */}
+      <div className={`relative z-10 px-16 ${sidebarCollapsed ? "ml-20" : "ml-80"} mt-6`}>
+        <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-2xl px-4 py-3 shadow">
+          <Search className="w-5 h-5 text-purple-600" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="输入事件关键字，定位热点事件与产品"
+            className="flex-1 bg-transparent outline-none text-black placeholder:text-gray-500"
+          />
+          <div ref={sortRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setSortOpen((v) => !v)}
+              className="flex items-center gap-2 text-sm bg-white border border-purple-200 rounded-lg px-2 py-1 text-black hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-300"
+              aria-haspopup="listbox"
+              aria-expanded={sortOpen}
+            >
+              <span>
+                {sortOption === "default"
+                  ? "排序：默认"
+                  : sortOption === "minInvestment-asc"
+                  ? "起投金额最低"
+                  : "已投保最多"}
+              </span>
+              <ChevronsUpDown className="w-4 h-4 text-purple-600" />
+            </button>
+            {sortOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                className="absolute left-0 mt-2 w-44 bg-white border border-purple-200 rounded-xl shadow-lg overflow-hidden z-50"
+                role="listbox"
+              >
+                {[
+                  { value: "default", label: "排序：默认" },
+                  { value: "minInvestment-asc", label: "起投金额最低" },
+                  { value: "insured-desc", label: "已投保最多" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onMouseDown={() => {
+                      setSortOption(opt.value as any);
+                      setSortOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-purple-50 ${
+                      sortOption === opt.value ? "bg-purple-50 text-purple-700" : "text-black"
+                    }`}
+                    role="option"
+                    tabIndex={0}
+                    aria-selected={sortOption === opt.value}
+                  >
+                    <span>{opt.label}</span>
+                    {sortOption === opt.value && (
+                      <Check className="w-4 h-4 text-purple-600" />
+                    )}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              setSearchQuery("");
+              setSelectedCategory("");
+              setSortOption("default");
+              setDisplayCount(9);
+              setSortOpen(false);
+            }}
+            className="text-sm text-purple-600 hover:text-purple-700"
+          >
+            重置筛选
+          </button>
+        </div>
+        {searchQuery && filteredHeroEvents.length > 0 && (
+          <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            {filteredHeroEvents.slice(0, 8).map((ev) => (
+              <button
+                key={ev.title}
+                onClick={() => {
+                  const idx = heroEvents.findIndex((e) => e.title === ev.title);
+                  if (idx !== -1) setCurrentHeroIndex(idx);
+                }}
+                className="px-3 py-2 text-sm bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl transition-colors"
+              >
+                {ev.title}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 类型筛选 */}
+        <div className="mt-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm text-gray-600">筛选类型：</span>
+            <button
+              onClick={() => setSelectedCategory("")}
+              className={`text-sm px-3 py-1 rounded-full border transition-all ${
+                selectedCategory === ""
+                  ? "bg-gradient-to-r from-pink-400 to-purple-500 text-white border-transparent"
+                  : "border-purple-300 text-purple-700 hover:bg-purple-50"
+              }`}
+            >
+              全部
+            </button>
+            {Array.from(
+              new Set([
+                ...heroEvents.map((e) => e.category),
+                ...allEvents.map((p) => p.tag).filter(Boolean),
+              ])
+            ).map((cat) => (
+              <button
+                key={cat as string}
+                onClick={() => setSelectedCategory(cat as string)}
+                className={`text-sm px-3 py-1 rounded-full border transition-all ${
+                  selectedCategory === cat
+                    ? "bg-gradient-to-r from-pink-400 to-purple-500 text-white border-transparent"
+                    : "border-purple-300 text-purple-700 hover:bg-purple-50"
+                }`}
+              >
+                {cat as string}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* 侧边栏 */}
       <motion.div
@@ -516,7 +726,8 @@ export default function TrendingPage() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
-                    // 点击专题时，切换到该专题的第一个事件
+                    // 点击专题时，切换到该专题的第一个事件，并同步类型筛选
+                    setSelectedCategory(category.name);
                     const firstEventIndex = heroEvents.findIndex(
                       (event) => event.category === category.name
                     );
@@ -620,7 +831,7 @@ export default function TrendingPage() {
         {!loading && !error && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {allEvents.map((product, i) => (
+              {sortedEvents.slice(0, displayCount).map((product, i) => (
                 <div
                   key={i}
                   className="bg-white/70 rounded-2xl shadow-md border border-white/30 overflow-hidden"
@@ -665,17 +876,22 @@ export default function TrendingPage() {
             </div>
             
             {/* 空数据状态 */}
-            {allEvents.length === 0 && (
+            {sortedEvents.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-black text-lg">暂无保险产品数据</p>
               </div>
             )}
             
-            <div className="text-center mt-10">
-              <button className="px-6 py-3 bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-full font-semibold">
-                查看更多
-              </button>
-            </div>
+            {sortedEvents.length > displayCount && (
+              <div className="text-center mt-10">
+                <button
+                  onClick={() => setDisplayCount((c) => Math.min(c + 9, sortedEvents.length))}
+                  className="px-6 py-3 bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-full font-semibold"
+                >
+                  查看更多
+                </button>
+              </div>
+            )}
           </>
         )}
       </section>

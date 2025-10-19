@@ -2,22 +2,22 @@
 import React, { useState } from "react";
 import TopNavBar from "@/components/TopNavBar";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Calendar, 
-  FileText, 
-  Tags, 
-  Coins, 
-  Link as LinkIcon, 
-  CheckCircle, 
-  Sparkles, 
-  TrendingUp, 
-  Users, 
+import {
+  Calendar,
+  FileText,
+  Tags,
+  Coins,
+  Link as LinkIcon,
+  CheckCircle,
+  Sparkles,
+  TrendingUp,
+  Users,
   Clock,
   AlertCircle,
   Info,
   Eye,
   Save,
-  Zap
+  Zap,
 } from "lucide-react";
 
 export default function CreatingPage() {
@@ -38,8 +38,15 @@ export default function CreatingPage() {
     { value: "娱乐", icon: "🎬", color: "from-pink-400 to-rose-400" },
     { value: "时政", icon: "🏛️", color: "from-purple-400 to-indigo-400" },
     { value: "天气", icon: "🌤️", color: "from-green-400 to-emerald-400" },
-    { value: "其他", icon: "🔮", color: "from-orange-400 to-amber-400" }
+    { value: "其他", icon: "🔮", color: "from-orange-400 to-amber-400" },
   ];
+
+  // 计算最小可选日期（一周后）
+  const getMinDateTime = () => {
+    const oneWeekFromNow = new Date();
+    oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
+    return oneWeekFromNow.toISOString().slice(0, 16); // 格式化为 datetime-local 格式
+  };
 
   const validate = () => {
     const e: { [k: string]: string } = {};
@@ -48,12 +55,26 @@ export default function CreatingPage() {
     if (!description.trim()) e.description = "请填写事件描述";
     if (description.length > 500) e.description = "描述不能超过500个字符";
     if (!deadline) e.deadline = "请选择截止时间";
-    if (new Date(deadline) <= new Date()) e.deadline = "截止时间必须是未来时间";
+    
+    // 检查截止时间限制
+    if (deadline) {
+      const selectedDate = new Date(deadline);
+      const now = new Date();
+      const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      if (selectedDate <= now) {
+        e.deadline = "截止时间不能是过去的时间";
+      } else if (selectedDate <= oneWeekFromNow) {
+        e.deadline = "截止时间必须在一周之后";
+      }
+    }
+    
     if (!criteria.trim()) e.criteria = "请填写结算条件";
     if (criteria.length > 300) e.criteria = "结算条件不能超过300个字符";
     if (Number(minStake) <= 0) e.minStake = "最小押注需大于 0";
     if (Number(minStake) > 10) e.minStake = "最小押注不能超过 10 ETH";
-    if (referenceUrl && !isValidUrl(referenceUrl)) e.referenceUrl = "请输入有效的URL";
+    if (referenceUrl && !isValidUrl(referenceUrl))
+      e.referenceUrl = "请输入有效的URL";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -70,14 +91,14 @@ export default function CreatingPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      const response = await fetch('/api/predictions', {
-        method: 'POST',
+      const response = await fetch("/api/predictions", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           title,
@@ -89,34 +110,35 @@ export default function CreatingPage() {
           referenceUrl: referenceUrl || null,
         }),
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         setCreated(true);
         // 清空表单
-        setTitle('');
-        setDescription('');
-        setCategory('科技');
-        setDeadline('');
-        setMinStake('0.1');
-        setCriteria('');
-        setReferenceUrl('');
+        setTitle("");
+        setDescription("");
+        setCategory("科技");
+        setDeadline("");
+        setMinStake("0.1");
+        setCriteria("");
+        setReferenceUrl("");
         setErrors({});
-        
+
         setTimeout(() => setCreated(false), 3000);
       } else {
-        setErrors({ submit: result.message || '创建失败' });
+        setErrors({ submit: result.message || "创建失败" });
       }
     } catch (error) {
-      console.error('创建预测事件失败:', error);
-      setErrors({ submit: '网络请求失败，请稍后重试' });
+      console.error("创建预测事件失败:", error);
+      setErrors({ submit: "网络请求失败，请稍后重试" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const getCurrentCategory = () => categories.find(c => c.value === category) || categories[0];
+  const getCurrentCategory = () =>
+    categories.find((c) => c.value === category) || categories[0];
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 overflow-hidden">
@@ -161,14 +183,16 @@ export default function CreatingPage() {
                     <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mr-3">
                       <FileText className="w-5 h-5 text-white" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-800">事件详情</h2>
+                    <h2 className="text-xl font-bold text-gray-800">
+                      事件详情
+                    </h2>
                   </div>
                   <button
                     onClick={() => setShowPreview(!showPreview)}
                     className="xl:hidden flex items-center px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
                     <Eye className="w-4 h-4 mr-1" />
-                    {showPreview ? '隐藏预览' : '显示预览'}
+                    {showPreview ? "隐藏预览" : "显示预览"}
                   </button>
                 </div>
 
@@ -187,9 +211,9 @@ export default function CreatingPage() {
                         onChange={(e) => setTitle(e.target.value)}
                         placeholder="例如：比特币在 2025 年底是否突破 10 万美元？"
                         className={`w-full px-4 py-3 rounded-xl border-2 bg-white/50 backdrop-blur-sm transition-all duration-200 focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900 ${
-                          errors.title 
-                            ? 'border-red-300 focus:border-red-400' 
-                            : 'border-gray-200 focus:border-purple-400'
+                          errors.title
+                            ? "border-red-300 focus:border-red-400"
+                            : "border-gray-200 focus:border-purple-400"
                         }`}
                         maxLength={100}
                       />
@@ -226,9 +250,9 @@ export default function CreatingPage() {
                         rows={4}
                         placeholder="请详细描述事件背景、参与方式、可能影响因素等，让参与者更好地理解事件"
                         className={`w-full px-4 py-3 rounded-xl border-2 bg-white/50 backdrop-blur-sm transition-all duration-200 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-400 text-gray-900 ${
-                          errors.description 
-                            ? 'border-red-300 focus:border-red-400' 
-                            : 'border-gray-200 focus:border-purple-400'
+                          errors.description
+                            ? "border-red-300 focus:border-red-400"
+                            : "border-gray-200 focus:border-purple-400"
                         }`}
                         maxLength={500}
                       />
@@ -254,7 +278,7 @@ export default function CreatingPage() {
                   {/* 分类和截止时间 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="flex items-center text-sm font-semibold text-gray-700">
+                      <label className="flex items-center text-sm font-semibold text-black">
                         <Tags className="w-4 h-4 mr-2 text-purple-500" />
                         事件分类
                       </label>
@@ -262,7 +286,7 @@ export default function CreatingPage() {
                         <select
                           value={category}
                           onChange={(e) => setCategory(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm focus:outline-none focus:border-purple-400 transition-all duration-200 appearance-none cursor-pointer"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white/50 backdrop-blur-sm focus:outline-none focus:border-purple-400 transition-all duration-200 appearance-none cursor-pointer text-black"
                         >
                           {categories.map((c) => (
                             <option key={c.value} value={c.value}>
@@ -271,15 +295,25 @@ export default function CreatingPage() {
                           ))}
                         </select>
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          <svg
+                            className="w-5 h-5 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
                           </svg>
                         </div>
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <label className="flex items-center text-sm font-semibold text-gray-700">
+                      <label className="flex items-center text-sm font-semibold text-black">
                         <Calendar className="w-4 h-4 mr-2 text-purple-500" />
                         截止时间
                         <span className="text-red-500 ml-1">*</span>
@@ -288,12 +322,17 @@ export default function CreatingPage() {
                         type="datetime-local"
                         value={deadline}
                         onChange={(e) => setDeadline(e.target.value)}
-                        className={`w-full px-4 py-3 rounded-xl border-2 bg-white/50 backdrop-blur-sm transition-all duration-200 focus:outline-none focus:ring-0 ${
-                          errors.deadline 
-                            ? 'border-red-300 focus:border-red-400' 
-                            : 'border-gray-200 focus:border-purple-400'
+                        min={getMinDateTime()}
+                        className={`w-full px-4 py-3 rounded-xl border-2 bg-white/50 backdrop-blur-sm transition-all duration-200 focus:outline-none focus:ring-0 text-black ${
+                          errors.deadline
+                            ? "border-red-300 focus:border-red-400"
+                            : "border-gray-200 focus:border-purple-400"
                         }`}
                       />
+                      <p className="text-xs text-gray-500 flex items-center">
+                        <Info className="w-3 h-3 mr-1" />
+                        只能选择未来一周后的时间
+                      </p>
                       <AnimatePresence>
                         {errors.deadline && (
                           <motion.p
@@ -326,9 +365,9 @@ export default function CreatingPage() {
                         value={minStake}
                         onChange={(e) => setMinStake(e.target.value)}
                         className={`w-full px-4 py-3 rounded-xl border-2 bg-white/50 backdrop-blur-sm transition-all duration-200 focus:outline-none focus:ring-0 text-gray-900 ${
-                          errors.minStake 
-                            ? 'border-red-300 focus:border-red-400' 
-                            : 'border-gray-200 focus:border-purple-400'
+                          errors.minStake
+                            ? "border-red-300 focus:border-red-400"
+                            : "border-gray-200 focus:border-purple-400"
                         }`}
                       />
                       <AnimatePresence>
@@ -357,9 +396,9 @@ export default function CreatingPage() {
                         onChange={(e) => setReferenceUrl(e.target.value)}
                         placeholder="例如：新闻源或数据网站链接"
                         className={`w-full px-4 py-3 rounded-xl border-2 bg-white/50 backdrop-blur-sm transition-all duration-200 focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900 ${
-                          errors.referenceUrl 
-                            ? 'border-red-300 focus:border-red-400' 
-                            : 'border-gray-200 focus:border-purple-400'
+                          errors.referenceUrl
+                            ? "border-red-300 focus:border-red-400"
+                            : "border-gray-200 focus:border-purple-400"
                         }`}
                       />
                       <AnimatePresence>
@@ -392,9 +431,9 @@ export default function CreatingPage() {
                         rows={3}
                         placeholder="明确事件被判定为'达成/未达成'的客观条件，例如：2025年12月31日前，比特币价格达到或超过10万美元"
                         className={`w-full px-4 py-3 rounded-xl border-2 bg-white/50 backdrop-blur-sm transition-all duration-200 focus:outline-none focus:ring-0 resize-none placeholder:text-gray-400 text-gray-900 ${
-                          errors.criteria 
-                            ? 'border-red-300 focus:border-red-400' 
-                            : 'border-gray-200 focus:border-purple-400'
+                          errors.criteria
+                            ? "border-red-300 focus:border-red-400"
+                            : "border-gray-200 focus:border-purple-400"
                         }`}
                         maxLength={300}
                       />
@@ -431,7 +470,7 @@ export default function CreatingPage() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                  
+
                   {/* 提交按钮 */}
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
                     <motion.button
@@ -458,7 +497,7 @@ export default function CreatingPage() {
                         </>
                       )}
                     </motion.button>
-                    
+
                     <div className="flex items-center text-sm text-gray-500">
                       <Info className="w-4 h-4 mr-1" />
                       <span>提交后将保存到数据库并显示在趋势页面</span>
@@ -483,19 +522,27 @@ export default function CreatingPage() {
                         <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center mr-3">
                           <Eye className="w-5 h-5 text-white" />
                         </div>
-                        <h2 className="text-xl font-bold text-gray-800">实时预览</h2>
+                        <h2 className="text-xl font-bold text-gray-800">
+                          实时预览
+                        </h2>
                       </div>
-                      
+
                       <motion.div
                         layout
                         className="rounded-2xl overflow-hidden shadow-lg border border-gray-100"
                       >
                         {/* 预览卡片头部 */}
-                        <div className={`p-4 bg-gradient-to-r ${getCurrentCategory().color} text-white relative overflow-hidden`}>
+                        <div
+                          className={`p-4 bg-gradient-to-r ${
+                            getCurrentCategory().color
+                          } text-white relative overflow-hidden`}
+                        >
                           <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
                           <div className="relative z-10">
                             <div className="flex items-center mb-2">
-                              <span className="text-2xl mr-2">{getCurrentCategory().icon}</span>
+                              <span className="text-2xl mr-2">
+                                {getCurrentCategory().icon}
+                              </span>
                               <span className="text-sm font-medium bg-white/20 px-2 py-1 rounded-full">
                                 {category}
                               </span>
@@ -505,38 +552,45 @@ export default function CreatingPage() {
                             </h3>
                           </div>
                         </div>
-                        
+
                         {/* 预览卡片内容 */}
                         <div className="p-4 bg-white">
                           <p className="text-sm text-gray-700 leading-relaxed mb-4 whitespace-pre-line">
-                            {description || "描述事件背景与参与规则，让更多人理解并参与预测。"}
+                            {description ||
+                              "描述事件背景与参与规则，让更多人理解并参与预测。"}
                           </p>
-                          
+
                           {/* 预览统计信息 */}
                           <div className="grid grid-cols-2 gap-3 mb-4">
-                            <div className="flex items-center text-sm text-gray-600">
+                            <div className="flex items-center text-sm text-black">
                               <Clock className="w-4 h-4 mr-2 text-orange-500" />
                               <span className="truncate">
-                                {deadline ? new Date(deadline).toLocaleDateString('zh-CN') : "未选择"}
+                                {deadline
+                                  ? new Date(deadline).toLocaleDateString(
+                                      "zh-CN"
+                                    )
+                                  : "未选择"}
                               </span>
                             </div>
-                            <div className="flex items-center text-sm text-gray-600">
+                            <div className="flex items-center text-sm text-black">
                               <Coins className="w-4 h-4 mr-2 text-yellow-500" />
                               <span>{minStake} ETH</span>
                             </div>
                           </div>
-                          
+
                           {/* 结算条件 */}
                           <div className="p-3 bg-gray-50 rounded-lg mb-4">
                             <div className="flex items-center mb-1">
                               <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
-                              <span className="text-xs font-medium text-gray-600">结算条件</span>
+                              <span className="text-xs font-medium text-gray-600">
+                                结算条件
+                              </span>
                             </div>
                             <p className="text-xs text-gray-700 leading-relaxed">
                               {criteria || "请明确结算条件"}
                             </p>
                           </div>
-                          
+
                           {/* 参考链接 */}
                           {referenceUrl && (
                             <a
@@ -549,7 +603,7 @@ export default function CreatingPage() {
                               参考链接
                             </a>
                           )}
-                          
+
                           {/* 模拟参与按钮 */}
                           <div className="flex gap-2 mt-4">
                             <button className="flex-1 py-2 px-3 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors">
