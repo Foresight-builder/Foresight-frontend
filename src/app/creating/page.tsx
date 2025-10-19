@@ -28,11 +28,49 @@ export default function CreatingPage() {
     return Object.keys(e).length === 0;
   };
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    setCreated(true);
-    setTimeout(() => setCreated(false), 2500);
+    
+    try {
+      const response = await fetch('/api/predictions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          description,
+          category,
+          deadline,
+          minStake: parseFloat(minStake),
+          criteria,
+          referenceUrl: referenceUrl || null,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setCreated(true);
+        // 清空表单
+        setTitle('');
+        setDescription('');
+        setCategory('科技');
+        setDeadline('');
+        setMinStake('0.1');
+        setCriteria('');
+        setReferenceUrl('');
+        setErrors({});
+        
+        setTimeout(() => setCreated(false), 2500);
+      } else {
+        setErrors({ submit: result.message || '创建失败' });
+      }
+    } catch (error) {
+      console.error('创建预测事件失败:', error);
+      setErrors({ submit: '网络请求失败，请稍后重试' });
+    }
   };
 
   return (
@@ -168,14 +206,22 @@ export default function CreatingPage() {
                 )}
               </div>
 
+              {/* 提交错误显示 */}
+              {errors.submit && (
+                <div className="p-3 rounded-lg bg-red-100 text-red-700 text-sm">
+                  {errors.submit}
+                </div>
+              )}
+              
               <div className="flex items-center justify-between mt-6">
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-400 to-purple-500 text-white font-semibold hover:from-pink-500 hover:to-purple-600 transition-all"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-400 to-purple-500 text-white font-semibold hover:from-pink-500 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={created}
                 >
-                  创建事件
+                  {created ? '创建成功' : '创建事件'}
                 </button>
-                <span className="text-xs opacity-70">提交后会在页面内展示预览（示例）。</span>
+                <span className="text-xs opacity-70">提交后将保存到数据库并显示在趋势页面。</span>
               </div>
             </form>
           </div>
@@ -223,9 +269,9 @@ export default function CreatingPage() {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-4 p-3 rounded-lg bg-green-100 text-sm"
+                className="mt-4 p-3 rounded-lg bg-green-100 text-green-700 text-sm"
               >
-                已创建（示例）！当前为前端演示，实际提交需对接后端或智能合约。
+                ✅ 预测事件创建成功！已保存到数据库，可以在趋势页面查看。
               </motion.div>
             )}
           </div>

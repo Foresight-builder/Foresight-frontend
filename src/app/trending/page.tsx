@@ -213,58 +213,46 @@ export default function TrendingPage() {
     },
   ];
 
-  // 修改为加密货币保险产品数据
-  const allEvents = [
-    {
-      title: "加密货币波动险",
-      description: "针对BTC价格24小时内波动超过10%的风险保障",
-      insured: "245 ETH",
-      minInvestment: "0.1 ETH",
-      tag: "市场波动",
-      image:
-        "https://p3-flow-imagex-download-sign.byteimg.com/tos-cn-i-a9rns2rl98/ae7ecd1985e14c50942ab9ce99248a48.png~tplv-a9rns2rl98-24:720:720.png?rcl=20251015141540E7CA9DB1FDBCD8B8BD20&rk3s=8e244e95&rrcfp=8a172a1a&x-expires=1761113741&x-signature=E2gCfNYp%2FC8KjcP7Qu41FRiWAqE%3D",
-    },
-    {
-      title: "智能合约安全险",
-      description: "保障因智能合约漏洞导致的资产损失",
-      insured: "189 ETH",
-      minInvestment: "0.05 ETH",
-      tag: "合约安全",
-      image: "https://picsum.photos/id/1/600/400",
-    },
-    {
-      title: "交易所安全险",
-      description: "针对交易所被黑客攻击造成的资产损失",
-      insured: "320 ETH",
-      minInvestment: "0.2 ETH",
-      tag: "交易所风险",
-      image: "https://picsum.photos/id/2/600/400",
-    },
-    {
-      title: "跨链交易保障险",
-      description: "保障跨链交易过程中可能出现的资产丢失风险",
-      insured: "156 ETH",
-      minInvestment: "0.08 ETH",
-      tag: "跨链风险",
-      image: "https://picsum.photos/id/3/600/400",
-    },
-    {
-      title: "NFT价值保护险",
-      description: "针对NFT市场价格大幅下跌的风险保障",
-      insured: "98 ETH",
-      minInvestment: "0.15 ETH",
-      tag: "NFT市场",
-      image: "https://picsum.photos/id/4/600/400",
-    },
-    {
-      title: "质押风险保障险",
-      description: "保障质押过程中可能出现的资产损失风险",
-      insured: "210 ETH",
-      minInvestment: "0.12 ETH",
-      tag: "质押风险",
-      image: "https://picsum.photos/id/5/600/400",
-    },
-  ];
+  // 从API获取预测事件数据
+  const [predictions, setPredictions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // 获取预测事件数据
+  useEffect(() => {
+    const fetchPredictions = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/predictions?limit=10');
+        const result = await response.json();
+        
+        if (result.success) {
+          setPredictions(result.data);
+        } else {
+          setError(result.message || '获取数据失败');
+        }
+      } catch (err) {
+        setError('网络请求失败');
+        console.error('获取预测事件失败:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPredictions();
+  }, []);
+
+  // 将预测事件转换为页面显示格式
+  const allEvents = predictions.map(prediction => ({
+    title: prediction.title,
+    description: prediction.description,
+    insured: `${prediction.minStake} ETH`,
+    minInvestment: `${prediction.minStake} ETH`,
+    tag: prediction.category,
+    image: "https://picsum.photos/id/" + (Math.floor(Math.random() * 10) + 1) + "/600/400",
+    deadline: prediction.deadline,
+    criteria: prediction.criteria
+  }));
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-pink-50 overflow-hidden text-black">
@@ -602,55 +590,91 @@ export default function TrendingPage() {
         <h3 className="text-2xl font-bold text-black mb-8 text-center">
           加密货币保险产品
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {allEvents.map((product, i) => (
-            <div
-              key={i}
-              className="bg-white/70 rounded-2xl shadow-md border border-white/30 overflow-hidden"
+        
+        {/* 加载状态 */}
+        {loading && (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+            <p className="mt-4 text-black">正在加载数据...</p>
+          </div>
+        )}
+        
+        {/* 错误状态 */}
+        {error && (
+          <div className="text-center py-12">
+            <div className="text-red-500 text-lg mb-2">加载失败</div>
+            <p className="text-black">{error}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-full"
             >
-              {/* 产品图片 */}
-              <div className="relative h-48 overflow-hidden">
-                <img
-                  src={product.image}
-                  alt={product.title}
-                  className="w-full h-full object-cover transition-transform hover:scale-105 duration-300"
-                />
-                {/* 标签 */}
-                <div className="absolute top-3 right-3 bg-gradient-to-r from-pink-400 to-purple-500 text-white text-sm px-3 py-1 rounded-full">
-                  {product.tag}
-                </div>
-              </div>
+              重新加载
+            </button>
+          </div>
+        )}
+        
+        {/* 数据展示 */}
+        {!loading && !error && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {allEvents.map((product, i) => (
+                <div
+                  key={i}
+                  className="bg-white/70 rounded-2xl shadow-md border border-white/30 overflow-hidden"
+                >
+                  {/* 产品图片 */}
+                  <div className="relative h-48 overflow-hidden">
+                    <img
+                      src={product.image}
+                      alt={product.title}
+                      className="w-full h-full object-cover transition-transform hover:scale-105 duration-300"
+                    />
+                    {/* 标签 */}
+                    <div className="absolute top-3 right-3 bg-gradient-to-r from-pink-400 to-purple-500 text-white text-sm px-3 py-1 rounded-full">
+                      {product.tag}
+                    </div>
+                  </div>
 
-              {/* 产品信息 */}
-              <div className="p-5">
-                <div className="flex justify-between items-start mb-3">
-                  <h4 className="font-bold text-black text-xl">
-                    {product.title}
-                  </h4>
-                  <span className="text-black text-sm bg-gray-100 px-2 py-1 rounded">
-                    已投保: {product.insured}
-                  </span>
-                </div>
+                  {/* 产品信息 */}
+                  <div className="p-5">
+                    <div className="flex justify-between items-start mb-3">
+                      <h4 className="font-bold text-black text-xl">
+                        {product.title}
+                      </h4>
+                      <span className="text-black text-sm bg-gray-100 px-2 py-1 rounded">
+                        已投保: {product.insured}
+                      </span>
+                    </div>
 
-                <p className="text-black text-sm mb-4">{product.description}</p>
+                    <p className="text-black text-sm mb-4">{product.description}</p>
 
-                <div className="flex justify-between items-center">
-                  <p className="text-black font-bold">
-                    {product.minInvestment} 起投
-                  </p>
-                  <button className="px-4 py-2 bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-full text-sm font-medium hover:from-pink-500 hover:to-purple-600 transition-all duration-300 shadow-md">
-                    立即投保
-                  </button>
+                    <div className="flex justify-between items-center">
+                      <p className="text-black font-bold">
+                        {product.minInvestment} 起投
+                      </p>
+                      <button className="px-4 py-2 bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-full text-sm font-medium hover:from-pink-500 hover:to-purple-600 transition-all duration-300 shadow-md">
+                        立即投保
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <div className="text-center mt-10">
-          <button className="px-6 py-3 bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-full font-semibold">
-            查看更多
-          </button>
-        </div>
+            
+            {/* 空数据状态 */}
+            {allEvents.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-black text-lg">暂无保险产品数据</p>
+              </div>
+            )}
+            
+            <div className="text-center mt-10">
+              <button className="px-6 py-3 bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-full font-semibold">
+                查看更多
+              </button>
+            </div>
+          </>
+        )}
       </section>
 
       <footer
