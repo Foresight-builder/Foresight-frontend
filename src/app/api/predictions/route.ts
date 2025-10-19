@@ -5,14 +5,8 @@ import { verifyToken } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    // 验证JWT令牌（获取预测事件列表需要登录）
-    const authResult = await verifyToken(request);
-    if (!authResult.success) {
-      return NextResponse.json(
-        { success: false, error: '请先登录' },
-        { status: 401 }
-      );
-    }
+    // 对于获取预测事件列表，允许匿名访问（不需要登录）
+    // 只有创建预测事件等敏感操作才需要登录验证
 
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
