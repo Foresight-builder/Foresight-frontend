@@ -19,8 +19,10 @@ import {
   Save,
   Zap,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function CreatingPage() {
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("科技");
@@ -124,6 +126,9 @@ export default function CreatingPage() {
         setCriteria("");
         setReferenceUrl("");
         setErrors({});
+
+        // 创建成功后跳转到 trending 页面
+        router.push("/trending");
 
         setTimeout(() => setCreated(false), 3000);
       } else {

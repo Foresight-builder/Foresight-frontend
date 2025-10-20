@@ -112,12 +112,14 @@ export default function TrendingPage() {
 
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [sortOption, setSortOption] = useState<"default" | "minInvestment-asc" | "insured-desc">("default");
   const [displayCount, setDisplayCount] = useState(9);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement | null>(null);
+  const productsSectionRef = useRef<HTMLElement | null>(null);
 
   // 自动轮播效果
   useEffect(() => {
@@ -349,76 +351,29 @@ export default function TrendingPage() {
         <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-2xl px-4 py-3 shadow">
           <Search className="w-5 h-5 text-purple-600" />
           <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                setSearchQuery(searchInput.trim());
+                productsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            }}
             placeholder="输入事件关键字，定位热点事件与产品"
             className="flex-1 bg-transparent outline-none text-black placeholder:text-gray-500"
           />
-          <div ref={sortRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setSortOpen((v) => !v)}
-              className="flex items-center gap-2 text-sm bg-white border border-purple-200 rounded-lg px-2 py-1 text-black hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-300"
-              aria-haspopup="listbox"
-              aria-expanded={sortOpen}
-            >
-              <span>
-                {sortOption === "default"
-                  ? "排序：默认"
-                  : sortOption === "minInvestment-asc"
-                  ? "起投金额最低"
-                  : "已投保最多"}
-              </span>
-              <ChevronsUpDown className="w-4 h-4 text-purple-600" />
-            </button>
-            {sortOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                className="absolute left-0 mt-2 w-44 bg-white border border-purple-200 rounded-xl shadow-lg overflow-hidden z-50"
-                role="listbox"
-              >
-                {[
-                  { value: "default", label: "排序：默认" },
-                  { value: "minInvestment-asc", label: "起投金额最低" },
-                  { value: "insured-desc", label: "已投保最多" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    onMouseDown={() => {
-                      setSortOption(opt.value as any);
-                      setSortOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-purple-50 ${
-                      sortOption === opt.value ? "bg-purple-50 text-purple-700" : "text-black"
-                    }`}
-                    role="option"
-                    tabIndex={0}
-                    aria-selected={sortOption === opt.value}
-                  >
-                    <span>{opt.label}</span>
-                    {sortOption === opt.value && (
-                      <Check className="w-4 h-4 text-purple-600" />
-                    )}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </div>
           <button
-            onClick={() => {
-              setSearchQuery("");
-              setSelectedCategory("");
-              setSortOption("default");
-              setDisplayCount(9);
-              setSortOpen(false);
-            }}
-            className="text-sm text-purple-600 hover:text-purple-700"
+            type="button"
+            onClick={() => { setSearchQuery(searchInput.trim()); productsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+            className="px-3 py-1 text-sm bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-lg hover:from-pink-500 hover:to-purple-600 transition-colors"
+            aria-label="去探索"
           >
-            重置筛选
+            去探索
           </button>
+          {/* 将排序和重置移至下方筛选栏 */}
         </div>
+        {/* 已移除：排序下拉与重置按钮，统一到筛选栏右侧 */}
+
         {searchQuery && filteredHeroEvents.length > 0 && (
           <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {filteredHeroEvents.slice(0, 8).map((ev) => (
@@ -468,6 +423,76 @@ export default function TrendingPage() {
                 {cat as string}
               </button>
             ))}
+
+            {/* 排序与重置控件移至筛选栏右侧 */}
+            <div className="ml-auto flex items-center gap-2">
+              <div ref={sortRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setSortOpen((v) => !v)}
+                  className="flex items-center gap-2 text-sm bg-white border border-purple-200 rounded-lg px-2 py-1 text-black hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                  aria-haspopup="listbox"
+                  aria-expanded={sortOpen}
+                >
+                  <span>
+                    {sortOption === "default"
+                      ? "排序：默认"
+                      : sortOption === "minInvestment-asc"
+                      ? "起投金额最低"
+                      : "已投保最多"}
+                  </span>
+                  <ChevronsUpDown className="w-4 h-4 text-purple-600" />
+                </button>
+                {sortOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    className="absolute left-0 mt-2 w-44 bg-white border border-purple-200 rounded-xl shadow-lg overflow-hidden z-50"
+                    role="listbox"
+                  >
+                    {[
+                      { value: "default", label: "排序：默认" },
+                      { value: "minInvestment-asc", label: "起投金额最低" },
+                      { value: "insured-desc", label: "已投保最多" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        onMouseDown={() => {
+                          setSortOption(opt.value as any);
+                          setSortOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-purple-50 ${
+                          sortOption === opt.value ? "bg-purple-50 text-purple-700" : "text-black"
+                        }`}
+                        role="option"
+                        tabIndex={0}
+                        aria-selected={sortOption === opt.value}
+                      >
+                        <span>{opt.label}</span>
+                        {sortOption === opt.value && (
+                          <Check className="w-4 h-4 text-purple-600" />
+                        )}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </div>
+
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setSearchInput("");
+                  setSelectedCategory("");
+                  setSortOption("default");
+                  setDisplayCount(9);
+                  setSortOpen(false);
+                }}
+                className="text-sm text-purple-600 hover:text-purple-700"
+              >
+                重置筛选
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -797,6 +822,7 @@ export default function TrendingPage() {
       </section>
 
       <section
+        ref={productsSectionRef}
         className={`relative z-10 px-10 py-12 bg-white/50 backdrop-blur-lg rounded-t-3xl transition-all duration-300 ${
           sidebarCollapsed ? "ml-20" : "ml-80"
         }`}
