@@ -82,7 +82,7 @@ export function getDatabase(): Database.Database {
         description: "预测比特币价格在2025年12月31日前是否达到或超过10万美元",
         category: "科技",
         deadline: "2025-12-31T23:59:59",
-        minStake: 0.1,
+        minStake: 1,
         criteria: "根据CoinMarketCap官方数据，比特币价格在2025年12月31日23:59:59前达到或超过10万美元",
         referenceUrl: "https://coinmarketcap.com/currencies/bitcoin/",
         status: "active"
@@ -92,7 +92,7 @@ export function getDatabase(): Database.Database {
         description: "预测2024年全球平均气温是否超过历史最高记录",
         category: "天气",
         deadline: "2024-12-31T23:59:59",
-        minStake: 0.05,
+        minStake: 1,
         criteria: "根据世界气象组织发布的2024年全球平均气温数据，是否超过2023年的记录",
         referenceUrl: "https://public.wmo.int/",
         status: "active"

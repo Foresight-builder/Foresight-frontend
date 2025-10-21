@@ -33,7 +33,7 @@ export const mockPredictions: Prediction[] = [
     createdAt: '2025-01-01T10:00:00',
     updatedAt: '2025-01-01T10:00:00',
     followers: 12842,
-    insured: '245 ETH',
+    insured: '245 USDT',
     tag: '加密货币'
   },
   {
@@ -48,7 +48,7 @@ export const mockPredictions: Prediction[] = [
     createdAt: '2025-01-01T09:00:00',
     updatedAt: '2025-01-01T09:00:00',
     followers: 9340,
-    insured: '189 ETH',
+    insured: '189 USDT',
     tag: '区块链'
   }
 ];

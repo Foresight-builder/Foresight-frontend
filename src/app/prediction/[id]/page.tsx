@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { ChevronLeft, Loader2, Share2, Check, ArrowUp } from 'lucide-react';
 
 interface PredictionDetail {
   id: number;
@@ -33,16 +35,33 @@ interface PredictionDetail {
 
 export default function PredictionDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const [prediction, setPrediction] = useState<PredictionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [entered, setEntered] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
     const fetchPredictionDetail = async () => {
       try {
         setLoading(true);
         const response = await fetch(`/api/predictions/${params.id}`);
-        const result = await response.json();
+        const contentType = response.headers.get('content-type') || '';
+        let result: any = null;
+        try {
+          if (contentType.includes('application/json')) {
+            result = await response.json();
+          } else {
+            throw new Error(`Unexpected content-type: ${contentType}`);
+          }
+        } catch (e) {
+          console.error('解析响应失败:', e);
+          setError('数据解析失败');
+          return;
+        }
         
         if (result.success) {
           setPrediction(result.data);
@@ -61,6 +80,21 @@ export default function PredictionDetailPage() {
       fetchPredictionDetail();
     }
   }, [params.id]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      if (typeof window !== 'undefined') {
+        setShowScrollTop(window.scrollY > 200);
+      }
+    };
+    window.addEventListener('scroll', onScroll);
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    router.prefetch('/trending');
+  }, [router]);
 
   if (loading) {
     return (
@@ -111,13 +145,62 @@ export default function PredictionDetailPage() {
       </div>
 
       <div className="relative z-10 px-4 sm:px-6 lg:px-10 py-8 sm:py-12">
-        <div className="max-w-4xl mx-auto">
+        <div className={`max-w-4xl mx-auto transition-all duration-200 ease-out ${entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
           {/* 返回按钮 */}
-          <button 
-            onClick={() => window.history.back()}
-            className="mb-6 flex items-center text-purple-600 hover:text-purple-800 transition-colors"
+          <button
+            type="button"
+            aria-label="返回上一页"
+            title="返回上一页"
+            onClick={() => {
+              const hasHistory = typeof window !== 'undefined' && window.history && window.history.length > 1;
+              const sameOriginReferrer = typeof document !== 'undefined' && document.referrer && (() => {
+                try {
+                  const ref = new URL(document.referrer);
+                  return ref.origin === window.location.origin;
+                } catch {
+                  return false;
+                }
+              })();
+              startTransition(() => {
+                if (hasHistory && sameOriginReferrer) {
+                  router.back();
+                } else {
+                  router.push('/trending');
+                }
+              });
+            }}
+            disabled={isPending}
+            className="mb-6 inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/60 backdrop-blur-md border border-gray-200 text-gray-700 hover:text-gray-800 hover:bg-white/75 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            ← 返回
+            {isPending ? (
+              <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
+            ) : (
+              <ChevronLeft className="w-4 h-4 text-gray-600" />
+            )}
+            <span className="text-sm font-medium">{isPending ? '返回中…' : '返回'}</span>
+          </button>
+          {/* 分享按钮 */}
+          <button
+            type="button"
+            aria-label="复制链接"
+            title="复制链接"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(window.location.href);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              } catch (e) {
+                console.error('复制失败', e);
+              }
+            }}
+            className="mb-6 ml-3 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/60 backdrop-blur-md border border-gray-200 text-gray-700 hover:text-gray-800 hover:bg-white/75 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 focus:ring-offset-white"
+          >
+            {copied ? (
+              <Check className="w-4 h-4 text-green-600" />
+            ) : (
+              <Share2 className="w-4 h-4 text-gray-600" />
+            )}
+            <span className="text-sm font-medium">{copied ? '已复制' : '分享'}</span>
           </button>
 
           {/* 预测事件卡片 - 与creating预览保持一致 */}
@@ -275,6 +358,21 @@ export default function PredictionDetailPage() {
             </div>
           )}
         </div>
+        {/* 悬浮回到顶部按钮 */}
+        <button
+          type="button"
+          aria-label="回到顶部"
+          title="回到顶部"
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          }}
+          className={`${showScrollTop ? 'opacity-100' : 'opacity-0 pointer-events-none'} fixed bottom-6 right-6 inline-flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-white/90 backdrop-blur-md border border-gray-200 text-gray-700 shadow-md hover:shadow-lg hover:bg-white transition-all focus:outline-none focus:ring-2 focus:ring-gray-300`}
+        >
+          <ArrowUp className="w-4 h-4" />
+          <span className="text-sm">顶部</span>
+        </button>
       </div>
     </div>
   );

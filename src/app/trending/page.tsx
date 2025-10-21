@@ -36,17 +36,17 @@ export default function TrendingPage() {
       { name: "预言机风险险", icon: "🔮", count: 2 },
     ],
     trendingProducts: [
-      { name: "BTC波动险", volume: "245 ETH", trend: "up" },
-      { name: "ETH智能合约险", volume: "189 ETH", trend: "up" },
-      { name: "交易所安全险", volume: "320 ETH", trend: "down" },
-      { name: "稳定币脱锚险", volume: "150 ETH", trend: "down" },
-      { name: "跨链桥安全险", volume: "210 ETH", trend: "up" },
-      { name: "去中心化协议险", volume: "133 ETH", trend: "up" },
+      { name: "BTC波动险", volume: "245 USDT", trend: "up" },
+      { name: "ETH智能合约险", volume: "189 USDT", trend: "up" },
+      { name: "交易所安全险", volume: "320 USDT", trend: "down" },
+      { name: "稳定币脱锚险", volume: "150 USDT", trend: "down" },
+      { name: "跨链桥安全险", volume: "210 USDT", trend: "up" },
+      { name: "去中心化协议险", volume: "133 USDT", trend: "up" },
     ],
     platformStats: {
-      totalInsured: "1,208 ETH",
+      totalInsured: "1,208 USDT",
       activeUsers: "2,456",
-      claimsPaid: "89 ETH",
+      claimsPaid: "89 USDT",
     },
   };
 
@@ -114,7 +114,18 @@ export default function TrendingPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [sortOption, setSortOption] = useState<"default" | "minInvestment-asc" | "insured-desc">("default");
+  const [sortOption, setSortOption] = useState<
+    | "default"
+    | "minInvestment-asc"
+    | "minInvestment-desc"
+    | "insured-desc"
+    | "createdAt-desc"
+    | "createdAt-asc"
+    | "deadline-asc"
+    | "deadline-desc"
+    | "title-asc"
+    | "title-desc"
+  >("default");
   const [displayCount, setDisplayCount] = useState(9);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [sortOpen, setSortOpen] = useState(false);
@@ -178,7 +189,7 @@ export default function TrendingPage() {
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
   }, [sortOpen]);
- 
+
   useEffect(() => {
     const maybeCanvas = canvasRef.current;
     if (!maybeCanvas) return;
@@ -278,17 +289,17 @@ export default function TrendingPage() {
     const fetchPredictions = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/predictions?limit=10');
+        const response = await fetch("/api/predictions?limit=10");
         const result = await response.json();
-        
+
         if (result.success) {
           setPredictions(result.data);
         } else {
-          setError(result.message || '获取数据失败');
+          setError(result.message || "获取数据失败");
         }
       } catch (err) {
-        setError('网络请求失败');
-        console.error('获取预测事件失败:', err);
+        setError("网络请求失败");
+        console.error("获取预测事件失败:", err);
       } finally {
         setLoading(false);
       }
@@ -298,15 +309,18 @@ export default function TrendingPage() {
   }, []);
 
   // 将预测事件转换为页面显示格式
-  const allEvents = predictions.map(prediction => ({
+  const allEvents = predictions.map((prediction) => ({
     title: prediction.title,
     description: prediction.description,
-    insured: `${prediction.minStake} ETH`,
-    minInvestment: `${prediction.minStake} ETH`,
+    insured: `${prediction.min_stake} USDT`,
+    minInvestment: `${prediction.min_stake} USDT`,
     tag: prediction.category,
-    image: prediction.image_url || "https://images.unsplash.com/photo-1611224923853-80b023f02d71?auto=format&fit=crop&w=1000&q=80",
+    image:
+      prediction.image_url ||
+      "https://images.unsplash.com/photo-1611224923853-80b023f02d71?auto=format&fit=crop&w=1000&q=80",
     deadline: prediction.deadline,
-    criteria: prediction.criteria
+    criteria: prediction.criteria,
+    createdAt: prediction.created_at,
   }));
 
   // 搜索与类型筛选
@@ -330,13 +344,62 @@ export default function TrendingPage() {
       (!hasCategory || (p.tag || "") === selectedCategory)
   );
   const displayEvents = hasQuery || hasCategory ? filteredAllEvents : allEvents;
-  const parseEth = (s: string) => parseFloat(String(s ?? '').replace(/[^0-9.]/g, '')) || 0;
+  const parseEth = (s: string) =>
+    parseFloat(String(s ?? "").replace(/[^0-9.]/g, "")) || 0;
+  const parseDate = (s: string) => {
+    const d = new Date(String(s ?? ""));
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+  const sortLabelMap = {
+    "minInvestment-asc": "起投金额最低",
+    "minInvestment-desc": "起投金额最高",
+    "insured-desc": "已投保最多",
+    "createdAt-desc": "创建时间最新",
+    "createdAt-asc": "创建时间最旧",
+    "deadline-asc": "截止时间最近",
+    "deadline-desc": "截止时间最远",
+    "title-asc": "标题A-Z",
+    "title-desc": "标题Z-A",
+  } as const;
   const sortedEvents = [...displayEvents].sort((a, b) => {
-    if (sortOption === 'minInvestment-asc') {
+    if (sortOption === "minInvestment-asc") {
       return parseEth(a.minInvestment) - parseEth(b.minInvestment);
     }
-    if (sortOption === 'insured-desc') {
+    if (sortOption === "minInvestment-desc") {
+      return parseEth(b.minInvestment) - parseEth(a.minInvestment);
+    }
+    if (sortOption === "insured-desc") {
       return parseEth(b.insured) - parseEth(a.insured);
+    }
+    if (sortOption === "createdAt-desc") {
+      return (
+        parseDate(b.createdAt as unknown as string) -
+        parseDate(a.createdAt as unknown as string)
+      );
+    }
+    if (sortOption === "createdAt-asc") {
+      return (
+        parseDate(a.createdAt as unknown as string) -
+        parseDate(b.createdAt as unknown as string)
+      );
+    }
+    if (sortOption === "deadline-asc") {
+      return (
+        parseDate(a.deadline as unknown as string) -
+        parseDate(b.deadline as unknown as string)
+      );
+    }
+    if (sortOption === "deadline-desc") {
+      return (
+        parseDate(b.deadline as unknown as string) -
+        parseDate(a.deadline as unknown as string)
+      );
+    }
+    if (sortOption === "title-asc") {
+      return String(a.title).localeCompare(String(b.title));
+    }
+    if (sortOption === "title-desc") {
+      return String(b.title).localeCompare(String(a.title));
     }
     return 0;
   });
@@ -347,7 +410,11 @@ export default function TrendingPage() {
       <TopNavBar />
 
       {/* 集成筛选栏 - 搜索、分类筛选、排序一体化 */}
-      <div className={`relative z-10 px-16 ${sidebarCollapsed ? "ml-20" : "ml-80"} mt-6`}>
+      <div
+        className={`relative z-10 px-16 ${
+          sidebarCollapsed ? "ml-20" : "ml-80"
+        } mt-6`}
+      >
         {/* 搜索栏 */}
         <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-2xl px-4 py-3 shadow mb-4">
           <Search className="w-5 h-5 text-purple-600" />
@@ -357,7 +424,10 @@ export default function TrendingPage() {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 setSearchQuery(searchInput.trim());
-                productsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                productsSectionRef.current?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                });
               }
             }}
             placeholder="输入事件关键字，定位热点事件与产品"
@@ -365,7 +435,13 @@ export default function TrendingPage() {
           />
           <button
             type="button"
-            onClick={() => { setSearchQuery(searchInput.trim()); productsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+            onClick={() => {
+              setSearchQuery(searchInput.trim());
+              productsSectionRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }}
             className="px-3 py-1 text-sm bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-lg hover:from-pink-500 hover:to-purple-600 transition-colors"
             aria-label="去探索"
           >
@@ -379,7 +455,9 @@ export default function TrendingPage() {
             {/* 分类筛选区域 */}
             <div>
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-sm font-semibold text-gray-800">分类筛选：</span>
+                <span className="text-sm font-semibold text-gray-800">
+                  分类筛选：
+                </span>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setSelectedCategory("")}
@@ -416,7 +494,9 @@ export default function TrendingPage() {
             {/* 排序区域 - 垂直平行放置 */}
             <div>
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-sm font-semibold text-gray-800">排序：</span>
+                <span className="text-sm font-semibold text-gray-800">
+                  排序：
+                </span>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setSortOption("default")}
@@ -439,6 +519,16 @@ export default function TrendingPage() {
                     起投最低
                   </button>
                   <button
+                    onClick={() => setSortOption("minInvestment-desc")}
+                    className={`text-sm px-4 py-2 rounded-full border-2 transition-all duration-200 font-medium ${
+                      sortOption === "minInvestment-desc"
+                        ? "bg-gradient-to-r from-green-500 to-green-600 text-white border-transparent shadow-lg transform scale-105"
+                        : "border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 hover:shadow-md"
+                    }`}
+                  >
+                    起投最高
+                  </button>
+                  <button
                     onClick={() => setSortOption("insured-desc")}
                     className={`text-sm px-4 py-2 rounded-full border-2 transition-all duration-200 font-medium ${
                       sortOption === "insured-desc"
@@ -447,6 +537,37 @@ export default function TrendingPage() {
                     }`}
                   >
                     投保最多
+                  </button>
+                  <button
+                    onClick={() => setSortOption("createdAt-desc")}
+                    className={`text-sm px-4 py-2 rounded-full border-2 transition-all duration-200 font-medium ${
+                      sortOption === "createdAt-desc"
+                        ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white border-transparent shadow-lg transform scale-105"
+                        : "border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-400 hover:shadow-md"
+                    }`}
+                  >
+                    最新创建
+                  </button>
+
+                  <button
+                    onClick={() => setSortOption("deadline-asc")}
+                    className={`text-sm px-4 py-2 rounded-full border-2 transition-all duration-200 font-medium ${
+                      sortOption === "deadline-asc"
+                        ? "bg-gradient-to-r from-cyan-500 to-cyan-600 text-white border-transparent shadow-lg transform scale-105"
+                        : "border-cyan-300 text-cyan-700 hover:bg-cyan-50 hover:border-cyan-400 hover:shadow-md"
+                    }`}
+                  >
+                    截止最近
+                  </button>
+                  <button
+                    onClick={() => setSortOption("deadline-desc")}
+                    className={`text-sm px-4 py-2 rounded-full border-2 transition-all duration-200 font-medium ${
+                      sortOption === "deadline-desc"
+                        ? "bg-gradient-to-r from-cyan-500 to-cyan-600 text-white border-transparent shadow-lg transform scale-105"
+                        : "border-cyan-300 text-cyan-700 hover:bg-cyan-50 hover:border-cyan-400 hover:shadow-md"
+                    }`}
+                  >
+                    截止最远
                   </button>
                 </div>
               </div>
@@ -473,7 +594,7 @@ export default function TrendingPage() {
 
           {/* 筛选状态显示 */}
           {(selectedCategory || sortOption !== "default") && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               className="mt-4 pt-4 border-t border-purple-100"
@@ -488,7 +609,8 @@ export default function TrendingPage() {
                   )}
                   {sortOption !== "default" && (
                     <span className="px-3 py-1.5 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 rounded-full font-medium shadow-sm">
-                      🔄 排序：{sortOption === "minInvestment-asc" ? "起投金额最低" : "已投保最多"}
+                      🔄 排序：
+                      {sortLabelMap[sortOption as keyof typeof sortLabelMap]}
                     </span>
                   )}
                 </div>
@@ -849,7 +971,7 @@ export default function TrendingPage() {
         <h3 className="text-2xl font-bold text-black mb-8 text-center">
           加密货币保险产品
         </h3>
-        
+
         {/* 加载状态 */}
         {loading && (
           <div className="text-center py-12">
@@ -857,21 +979,21 @@ export default function TrendingPage() {
             <p className="mt-4 text-black">正在加载数据...</p>
           </div>
         )}
-        
+
         {/* 错误状态 */}
         {error && (
           <div className="text-center py-12">
             <div className="text-red-500 text-lg mb-2">加载失败</div>
             <p className="text-black">{error}</p>
-            <button 
-              onClick={() => window.location.reload()} 
+            <button
+              onClick={() => window.location.reload()}
               className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-full"
             >
               重新加载
             </button>
           </div>
         )}
-        
+
         {/* 数据展示 */}
         {!loading && !error && (
           <>
@@ -906,7 +1028,9 @@ export default function TrendingPage() {
                       </span>
                     </div>
 
-                    <p className="text-black text-sm mb-4">{product.description}</p>
+                    <p className="text-black text-sm mb-4">
+                      {product.description}
+                    </p>
 
                     <div className="flex justify-between items-center">
                       <p className="text-black font-bold">
@@ -920,18 +1044,20 @@ export default function TrendingPage() {
                 </Link>
               ))}
             </div>
-            
+
             {/* 空数据状态 */}
             {sortedEvents.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-black text-lg">暂无保险产品数据</p>
               </div>
             )}
-            
+
             {sortedEvents.length > displayCount && (
               <div className="text-center mt-10">
                 <button
-                  onClick={() => setDisplayCount((c) => Math.min(c + 9, sortedEvents.length))}
+                  onClick={() =>
+                    setDisplayCount((c) => Math.min(c + 9, sortedEvents.length))
+                  }
                   className="px-6 py-3 bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-full font-semibold"
                 >
                   查看更多
