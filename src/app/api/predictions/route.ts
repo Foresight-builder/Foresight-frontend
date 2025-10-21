@@ -62,6 +62,30 @@ export async function POST(request: NextRequest) {
     // 解析请求体中的JSON数据
     const body = await request.json();
     
+    // 验证用户是否已登录（钱包地址）
+    const walletAddress = body.walletAddress;
+    if (!walletAddress) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: '请先连接钱包登录' 
+        },
+        { status: 401 }
+      );
+    }
+    
+    // 验证钱包地址格式
+    const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+    if (!ethAddressRegex.test(walletAddress)) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: '无效的钱包地址格式' 
+        },
+        { status: 400 }
+      );
+    }
+    
     // 验证必填字段
     const requiredFields = ['title', 'description', 'category', 'deadline', 'minStake', 'criteria'];
     const missingFields = requiredFields.filter(field => !body[field]);
@@ -85,6 +109,56 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // 检查是否已存在相同标题的预测事件
+    const { data: existingPredictions, error: checkError } = await supabaseAdmin
+      .from('predictions')
+      .select('id, title, description, category, deadline, status')
+      .eq('title', body.title);
+    
+    if (checkError) {
+      console.error('检查重复标题失败:', checkError);
+      return NextResponse.json(
+        { success: false, message: '检查预测事件失败' },
+        { status: 500 }
+      );
+    }
+    
+    // 如果存在相同标题的预测事件，返回错误并列出所有重复事件
+    if (existingPredictions && existingPredictions.length > 0) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: '已存在相同标题的预测事件，请修改标题或删除现有事件',
+          duplicateEvents: existingPredictions.map(event => ({
+            id: event.id,
+            title: event.title,
+            category: event.category,
+            status: event.status,
+            deadline: event.deadline
+          }))
+        },
+        { status: 409 } // 409 Conflict 状态码
+      );
+    }
+    
+    // 验证图片URL（如果提供了）
+    if (body.imageUrl && typeof body.imageUrl !== 'string') {
+      return NextResponse.json(
+        { success: false, message: '图片URL格式无效' },
+        { status: 400 }
+      );
+    }
+
+    // 如果没有提供图片URL，根据标题生成图片
+    let imageUrl: string;
+    if (body.imageUrl) {
+      imageUrl = body.imageUrl;
+    } else {
+      // 使用DiceBear API根据标题生成图片
+      const seed = body.title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'prediction';
+      imageUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&size=400&backgroundColor=b6e3f4,c0aede,d1d4f9&radius=20`;
+    }
+
     // 插入新的预测事件到Supabase数据库
     // 先获取当前最大id，然后手动指定id来避免序列冲突
     const { data: maxIdData, error: maxIdError } = await supabaseAdmin
@@ -114,6 +188,7 @@ export async function POST(request: NextRequest) {
         min_stake: body.minStake,
         criteria: body.criteria,
         reference_url: body.reference_url || '',
+        image_url: imageUrl,
         status: 'active'
       })
       .select()
@@ -138,7 +213,7 @@ export async function POST(request: NextRequest) {
     // 错误处理
     console.error('创建预测事件异常:', error);
     return NextResponse.json(
-      { success: false, message: '创建预测事件失败', error: error.message },
+      { success: false, message: '创建预测事件失败', error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

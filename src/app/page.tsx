@@ -188,10 +188,12 @@ export default function App() {
                 创建预测
               </button>
             </Link>
-            <button className="group bg-white/80 backdrop-blur-sm border-2 border-green-200 text-green-600 px-8 py-4 rounded-2xl hover:bg-green-50 hover:border-green-300 transition-all duration-300 flex items-center font-semibold text-lg shadow-lg">
-              <User className="w-5 h-5 mr-2" />
-              我的预测
-            </button>
+            <Link href="/prediction/1">
+              <button className="group bg-white/80 backdrop-blur-sm border-2 border-green-200 text-green-600 px-8 py-4 rounded-2xl hover:bg-green-50 hover:border-green-300 transition-all duration-300 flex items-center font-semibold text-lg shadow-lg">
+                <User className="w-5 h-5 mr-2" />
+                测试详情页
+              </button>
+            </Link>
           </motion.div>
 
           {/* Stats Section */}

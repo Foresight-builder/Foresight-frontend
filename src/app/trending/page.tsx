@@ -304,7 +304,7 @@ export default function TrendingPage() {
     insured: `${prediction.minStake} ETH`,
     minInvestment: `${prediction.minStake} ETH`,
     tag: prediction.category,
-    image: "https://picsum.photos/id/" + (Math.floor(Math.random() * 10) + 1) + "/600/400",
+    image: prediction.image_url || "https://images.unsplash.com/photo-1611224923853-80b023f02d71?auto=format&fit=crop&w=1000&q=80",
     deadline: prediction.deadline,
     criteria: prediction.criteria
   }));
@@ -346,9 +346,10 @@ export default function TrendingPage() {
       <canvas ref={canvasRef} className="absolute inset-0 z-0" />
       <TopNavBar />
 
-      {/* 搜索热点事件与产品 */}
+      {/* 集成筛选栏 - 搜索、分类筛选、排序一体化 */}
       <div className={`relative z-10 px-16 ${sidebarCollapsed ? "ml-20" : "ml-80"} mt-6`}>
-        <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-2xl px-4 py-3 shadow">
+        {/* 搜索栏 */}
+        <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-2xl px-4 py-3 shadow mb-4">
           <Search className="w-5 h-5 text-purple-600" />
           <input
             value={searchInput}
@@ -370,10 +371,133 @@ export default function TrendingPage() {
           >
             去探索
           </button>
-          {/* 将排序和重置移至下方筛选栏 */}
         </div>
-        {/* 已移除：排序下拉与重置按钮，统一到筛选栏右侧 */}
 
+        {/* 集成筛选栏 - 分类筛选 + 排序 + 重置 */}
+        <div className="bg-white/90 backdrop-blur-sm border border-purple-200/60 rounded-2xl p-5 shadow-lg">
+          <div className="space-y-6">
+            {/* 分类筛选区域 */}
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-sm font-semibold text-gray-800">分类筛选：</span>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSelectedCategory("")}
+                    className={`text-sm px-4 py-2 rounded-full border-2 transition-all duration-200 font-medium ${
+                      selectedCategory === ""
+                        ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white border-transparent shadow-lg transform scale-105"
+                        : "border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-400 hover:shadow-md"
+                    }`}
+                  >
+                    全部
+                  </button>
+                  {Array.from(
+                    new Set([
+                      ...heroEvents.map((e) => e.category),
+                      ...allEvents.map((p) => p.tag).filter(Boolean),
+                    ])
+                  ).map((cat) => (
+                    <button
+                      key={cat as string}
+                      onClick={() => setSelectedCategory(cat as string)}
+                      className={`text-sm px-4 py-2 rounded-full border-2 transition-all duration-200 font-medium ${
+                        selectedCategory === cat
+                          ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white border-transparent shadow-lg transform scale-105"
+                          : "border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-400 hover:shadow-md"
+                      }`}
+                    >
+                      {cat as string}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 排序区域 - 垂直平行放置 */}
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-sm font-semibold text-gray-800">排序：</span>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSortOption("default")}
+                    className={`text-sm px-4 py-2 rounded-full border-2 transition-all duration-200 font-medium ${
+                      sortOption === "default"
+                        ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white border-transparent shadow-lg transform scale-105"
+                        : "border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 hover:shadow-md"
+                    }`}
+                  >
+                    默认
+                  </button>
+                  <button
+                    onClick={() => setSortOption("minInvestment-asc")}
+                    className={`text-sm px-4 py-2 rounded-full border-2 transition-all duration-200 font-medium ${
+                      sortOption === "minInvestment-asc"
+                        ? "bg-gradient-to-r from-green-500 to-green-600 text-white border-transparent shadow-lg transform scale-105"
+                        : "border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 hover:shadow-md"
+                    }`}
+                  >
+                    起投最低
+                  </button>
+                  <button
+                    onClick={() => setSortOption("insured-desc")}
+                    className={`text-sm px-4 py-2 rounded-full border-2 transition-all duration-200 font-medium ${
+                      sortOption === "insured-desc"
+                        ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white border-transparent shadow-lg transform scale-105"
+                        : "border-orange-300 text-orange-700 hover:bg-orange-50 hover:border-orange-400 hover:shadow-md"
+                    }`}
+                  >
+                    投保最多
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 右侧：重置按钮 */}
+            <div className="flex items-center gap-4">
+              {/* 重置按钮 */}
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setSearchInput("");
+                  setSelectedCategory("");
+                  setSortOption("default");
+                  setDisplayCount(9);
+                  setSortOpen(false);
+                }}
+                className="px-4 py-2.5 text-sm bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 rounded-xl border-2 border-gray-200 hover:border-gray-300 font-medium shadow-sm transition-all duration-200"
+              >
+                重置筛选
+              </button>
+            </div>
+          </div>
+
+          {/* 筛选状态显示 */}
+          {(selectedCategory || sortOption !== "default") && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              className="mt-4 pt-4 border-t border-purple-100"
+            >
+              <div className="flex items-center gap-3 text-sm">
+                <span className="font-medium text-gray-700">当前筛选：</span>
+                <div className="flex flex-wrap gap-2">
+                  {selectedCategory && (
+                    <span className="px-3 py-1.5 bg-gradient-to-r from-purple-100 to-purple-200 text-purple-700 rounded-full font-medium shadow-sm">
+                      📊 分类：{selectedCategory}
+                    </span>
+                  )}
+                  {sortOption !== "default" && (
+                    <span className="px-3 py-1.5 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 rounded-full font-medium shadow-sm">
+                      🔄 排序：{sortOption === "minInvestment-asc" ? "起投金额最低" : "已投保最多"}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </div>
+
+        {/* 搜索结果提示 */}
         {searchQuery && filteredHeroEvents.length > 0 && (
           <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {filteredHeroEvents.slice(0, 8).map((ev) => (
@@ -390,111 +514,6 @@ export default function TrendingPage() {
             ))}
           </div>
         )}
-
-        {/* 类型筛选 */}
-        <div className="mt-4">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm text-gray-600">筛选类型：</span>
-            <button
-              onClick={() => setSelectedCategory("")}
-              className={`text-sm px-3 py-1 rounded-full border transition-all ${
-                selectedCategory === ""
-                  ? "bg-gradient-to-r from-pink-400 to-purple-500 text-white border-transparent"
-                  : "border-purple-300 text-purple-700 hover:bg-purple-50"
-              }`}
-            >
-              全部
-            </button>
-            {Array.from(
-              new Set([
-                ...heroEvents.map((e) => e.category),
-                ...allEvents.map((p) => p.tag).filter(Boolean),
-              ])
-            ).map((cat) => (
-              <button
-                key={cat as string}
-                onClick={() => setSelectedCategory(cat as string)}
-                className={`text-sm px-3 py-1 rounded-full border transition-all ${
-                  selectedCategory === cat
-                    ? "bg-gradient-to-r from-pink-400 to-purple-500 text-white border-transparent"
-                    : "border-purple-300 text-purple-700 hover:bg-purple-50"
-                }`}
-              >
-                {cat as string}
-              </button>
-            ))}
-
-            {/* 排序与重置控件移至筛选栏右侧 */}
-            <div className="ml-auto flex items-center gap-2">
-              <div ref={sortRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setSortOpen((v) => !v)}
-                  className="flex items-center gap-2 text-sm bg-white border border-purple-200 rounded-lg px-2 py-1 text-black hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                  aria-haspopup="listbox"
-                  aria-expanded={sortOpen}
-                >
-                  <span>
-                    {sortOption === "default"
-                      ? "排序：默认"
-                      : sortOption === "minInvestment-asc"
-                      ? "起投金额最低"
-                      : "已投保最多"}
-                  </span>
-                  <ChevronsUpDown className="w-4 h-4 text-purple-600" />
-                </button>
-                {sortOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 6 }}
-                    className="absolute left-0 mt-2 w-44 bg-white border border-purple-200 rounded-xl shadow-lg overflow-hidden z-50"
-                    role="listbox"
-                  >
-                    {[
-                      { value: "default", label: "排序：默认" },
-                      { value: "minInvestment-asc", label: "起投金额最低" },
-                      { value: "insured-desc", label: "已投保最多" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        onMouseDown={() => {
-                          setSortOption(opt.value as any);
-                          setSortOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-purple-50 ${
-                          sortOption === opt.value ? "bg-purple-50 text-purple-700" : "text-black"
-                        }`}
-                        role="option"
-                        tabIndex={0}
-                        aria-selected={sortOption === opt.value}
-                      >
-                        <span>{opt.label}</span>
-                        {sortOption === opt.value && (
-                          <Check className="w-4 h-4 text-purple-600" />
-                        )}
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </div>
-
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setSearchInput("");
-                  setSelectedCategory("");
-                  setSortOption("default");
-                  setDisplayCount(9);
-                  setSortOpen(false);
-                }}
-                className="text-sm text-purple-600 hover:text-purple-700"
-              >
-                重置筛选
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* 侧边栏 */}
@@ -858,9 +877,10 @@ export default function TrendingPage() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {sortedEvents.slice(0, displayCount).map((product, i) => (
-                <div
+                <Link
                   key={i}
-                  className="bg-white/70 rounded-2xl shadow-md border border-white/30 overflow-hidden"
+                  href={`/prediction/${predictions[i]?.id || i + 1}`}
+                  className="bg-white/70 rounded-2xl shadow-md border border-white/30 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105"
                 >
                   {/* 产品图片 */}
                   <div className="relative h-48 overflow-hidden">
@@ -893,11 +913,11 @@ export default function TrendingPage() {
                         {product.minInvestment} 起投
                       </p>
                       <button className="px-4 py-2 bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-full text-sm font-medium hover:from-pink-500 hover:to-purple-600 transition-all duration-300 shadow-md">
-                        立即投保
+                        查看详情
                       </button>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
             

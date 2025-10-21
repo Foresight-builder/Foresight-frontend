@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import TopNavBar from "@/components/TopNavBar";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -18,6 +18,9 @@ import {
   Eye,
   Save,
   Zap,
+  Wallet,
+  Upload,
+  Image,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -30,10 +33,61 @@ export default function CreatingPage() {
   const [minStake, setMinStake] = useState("0.1");
   const [criteria, setCriteria] = useState("");
   const [referenceUrl, setReferenceUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [created, setCreated] = useState(false);
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [isCheckingWallet, setIsCheckingWallet] = useState(true);
+  const [autoGenerateStatus, setAutoGenerateStatus] = useState<'idle' | 'active' | 'success'>('idle');
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+
+  // 检查钱包连接状态
+  useEffect(() => {
+    const checkWalletConnection = async () => {
+      try {
+        const ethereum = (window as any).ethereum;
+        if (!ethereum) {
+          setIsCheckingWallet(false);
+          return;
+        }
+
+        // 检查是否有已连接的账户
+        const accounts = await ethereum.request({ method: 'eth_accounts' });
+        if (accounts && accounts.length > 0) {
+          setWalletAddress(accounts[0]);
+        }
+      } catch (error) {
+        console.error('检查钱包连接失败:', error);
+      } finally {
+        setIsCheckingWallet(false);
+      }
+    };
+
+    checkWalletConnection();
+
+    // 监听账户变化
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts && accounts.length > 0) {
+        setWalletAddress(accounts[0]);
+      } else {
+        setWalletAddress(null);
+      }
+    };
+
+    const ethereum = (window as any).ethereum;
+    if (ethereum && ethereum.on) {
+      ethereum.on('accountsChanged', handleAccountsChanged);
+      return () => {
+        if (ethereum.removeListener) {
+          ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        }
+      };
+    }
+  }, []);
 
   const categories = [
     { value: "科技", icon: "💻", color: "from-blue-400 to-cyan-400" },
@@ -77,6 +131,12 @@ export default function CreatingPage() {
     if (Number(minStake) > 10) e.minStake = "最小押注不能超过 10 ETH";
     if (referenceUrl && !isValidUrl(referenceUrl))
       e.referenceUrl = "请输入有效的URL";
+    
+    // 图片验证（可选，如果没有上传图片也没有标题，则提示）
+    if (!imageFile && !title.trim()) {
+      e.image = "推荐上传图片或填写标题生成图片，可以让您的预测事件更具吸引力";
+    }
+    
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -90,13 +150,118 @@ export default function CreatingPage() {
     }
   };
 
+  // 处理图片上传
+  const handleImageUpload = async (file: File) => {
+    if (!walletAddress) {
+      setErrors({ image: '请先连接钱包登录' });
+      return null;
+    }
+
+    // 验证文件类型
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      setErrors({ image: '只支持 JPEG、PNG、WebP 和 GIF 格式的图片' });
+      return null;
+    }
+
+    // 验证文件大小（最大5MB）
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setErrors({ image: '图片文件大小不能超过5MB' });
+      return null;
+    }
+
+    setIsUploadingImage(true);
+    setErrors({});
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('walletAddress', walletAddress);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setErrors({});
+        return result.data.publicUrl;
+      } else {
+        setErrors({ image: result.message || '图片上传失败' });
+        return null;
+      }
+    } catch (error) {
+      console.error('图片上传异常:', error);
+      setErrors({ image: '图片上传失败，请稍后重试' });
+      return null;
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  // 生成图片URL
+  const generateImageUrl = (title: string) => {
+    if (!title.trim()) return null;
+    const seed = title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'prediction';
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&size=400&backgroundColor=b6e3f4,c0aede,d1d4f9&radius=20`;
+  };
+
+  // 处理图片选择
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImageFile(file);
+    setErrors({});
+
+    // 创建预览
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // 移除图片
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setErrors({});
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // 检查是否已连接钱包
+    if (!walletAddress) {
+      setErrors({ submit: '请先连接钱包登录后再创建预测事件' });
+      return;
+    }
+    
     if (!validate()) return;
 
     setIsSubmitting(true);
 
     try {
+      // 处理图片：如果有图片文件则上传，否则根据标题生成图片
+      let imageUrl = null;
+      if (imageFile) {
+        imageUrl = await handleImageUpload(imageFile);
+        if (!imageUrl) {
+          setIsSubmitting(false);
+          return; // 图片上传失败，停止提交
+        }
+      } else if (generatedImageUrl) {
+        // 如果用户生成了图片预览，则使用生成的图片URL
+        imageUrl = generatedImageUrl;
+      } else if (title.trim()) {
+        // 如果没有上传图片也没有生成预览，但有标题，则生成图片
+        imageUrl = generateImageUrl(title);
+      }
+
       const response = await fetch("/api/predictions", {
         method: "POST",
         headers: {
@@ -110,6 +275,8 @@ export default function CreatingPage() {
           minStake: parseFloat(minStake),
           criteria,
           referenceUrl: referenceUrl || null,
+          imageUrl, // 添加图片URL
+          walletAddress, // 添加钱包地址
         }),
       });
 
@@ -125,6 +292,10 @@ export default function CreatingPage() {
         setMinStake("0.1");
         setCriteria("");
         setReferenceUrl("");
+        setImageFile(null);
+        setImagePreview(null);
+        setGeneratedImageUrl(null);
+        setAutoGenerateStatus('idle');
         setErrors({});
 
         // 创建成功后跳转到 trending 页面
@@ -132,7 +303,20 @@ export default function CreatingPage() {
 
         setTimeout(() => setCreated(false), 3000);
       } else {
-        setErrors({ submit: result.message || "创建失败" });
+        // 处理标题重复错误（409状态码）
+        if (response.status === 409 && result.duplicateEvents) {
+          const duplicateCount = result.duplicateEvents.length;
+          const duplicateInfo = result.duplicateEvents.map((event: { id: any; category: any; status: any }) =>
+            `ID: ${event.id}, 分类: ${event.category}, 状态: ${event.status}`
+          ).join('\n');
+          
+          setErrors({ 
+            submit: `标题重复！已存在 ${duplicateCount} 个相同标题的事件。\n重复事件信息：\n${duplicateInfo}`,
+            title: '标题已存在，请修改标题或删除现有事件'
+          });
+        } else {
+          setErrors({ submit: result.message || "创建失败" });
+        }
       }
     } catch (error) {
       console.error("创建预测事件失败:", error);
@@ -144,6 +328,67 @@ export default function CreatingPage() {
 
   const getCurrentCategory = () =>
     categories.find((c) => c.value === category) || categories[0];
+
+  // 如果正在检查钱包状态，显示加载中
+  if (isCheckingWallet) {
+    return (
+      <div className="relative min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 overflow-hidden">
+        <TopNavBar />
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">检查钱包连接状态...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 如果未连接钱包，显示登录提示
+  if (!walletAddress) {
+    return (
+      <div className="relative min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 overflow-hidden">
+        <TopNavBar />
+
+        {/* 背景装饰 */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-200/30 to-pink-200/30 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/30 to-cyan-200/30 rounded-full blur-3xl"></div>
+        </div>
+
+        <section className="relative z-10 px-4 sm:px-6 lg:px-10 py-8 sm:py-12">
+          <div className="max-w-md mx-auto text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl mb-6">
+              <Wallet className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
+              请先登录
+            </h1>
+            <p className="text-gray-600 mb-8">
+              创建预测事件需要先连接钱包登录。请点击右上角的"连接钱包"按钮进行登录。
+            </p>
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">登录后您可以：</h3>
+              <ul className="text-gray-600 space-y-2 text-left">
+                <li className="flex items-center">
+                  <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                  创建新的预测事件
+                </li>
+                <li className="flex items-center">
+                  <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                  参与预测和押注
+                </li>
+                <li className="flex items-center">
+                  <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                  获得预测奖励
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 overflow-hidden">
@@ -171,6 +416,10 @@ export default function CreatingPage() {
           <p className="text-gray-600 max-w-2xl mx-auto">
             发起一个有趣的预测事件，让社区成员参与预测并获得奖励
           </p>
+          <div className="mt-4 inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm">
+            <Wallet className="w-4 h-4 mr-2" />
+            已连接钱包: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+          </div>
         </motion.div>
 
         <motion.div
@@ -420,6 +669,232 @@ export default function CreatingPage() {
                         )}
                       </AnimatePresence>
                     </div>
+                  </div>
+
+                  {/* 图片上传区域 */}
+                  <div className="space-y-3">
+                    <label className="flex items-center text-sm font-semibold text-gray-700">
+                      <Image className="w-4 h-4 mr-2 text-purple-500" />
+                      事件图片
+                      <span className="text-blue-500 ml-1">（可选）</span>
+                    </label>
+                    
+                    {/* 按钮选择区域 */}
+                    <div className="flex space-x-3">
+                      {/* 上传图片按钮 */}
+                      <button
+                        type="button"
+                        className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 border rounded-lg transition-colors ${
+                          imageFile 
+                            ? 'border-green-500 bg-green-50 text-green-700' 
+                            : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50'
+                        }`}
+                        onClick={() => document.getElementById('image-upload')?.click()}
+                      >
+                        <Upload className="w-5 h-5" />
+                        <span>{imageFile ? '已选择图片' : '上传图片'}</span>
+                      </button>
+                      
+                      {/* 自动生成按钮 */}
+                      <button
+                        type="button"
+                        className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 border rounded-lg transition-colors relative overflow-hidden ${
+                          autoGenerateStatus === 'active'
+                            ? 'border-blue-500 bg-blue-100 text-blue-700 cursor-not-allowed'
+                            : !imageFile && title.trim() 
+                            ? 'border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                            : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                        }`}
+                        onClick={() => {
+                          if (autoGenerateStatus === 'active') return;
+                          
+                          setImageFile(null);
+                          setImagePreview(null);
+                          setErrors({});
+                          
+                          if (title.trim()) {
+                            setAutoGenerateStatus('active');
+                            
+                            // 模拟生成过程
+                            setTimeout(() => {
+                              // 生成图片URL并设置预览
+                              const newImageUrl = generateImageUrl(title);
+                              setGeneratedImageUrl(newImageUrl);
+                              setAutoGenerateStatus('success');
+                              // 3秒后恢复初始状态
+                              setTimeout(() => setAutoGenerateStatus('idle'), 3000);
+                            }, 800);
+                          }
+                        }}
+                        disabled={autoGenerateStatus === 'active'}
+                      >
+                        {autoGenerateStatus === 'active' ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            <span>生成中...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-5 h-5" />
+                            <span>自动生成</span>
+                          </>
+                        )}
+                        
+                        {/* 加载动画效果 */}
+                        {autoGenerateStatus === 'active' && (
+                          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-blue-600/10 animate-pulse"></div>
+                        )}
+                      </button>
+                    </div>
+                    
+                    {/* 隐藏的文件输入 */}
+                    <input
+                      id="image-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageSelect}
+                    />
+                    
+                    {/* 图片预览和信息 */}
+                    {imageFile && (
+                      <div className="bg-gray-50 rounded-lg p-3 border">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Image className="w-4 h-4 text-green-500" />
+                            <span className="text-sm font-medium text-green-700">已选择图片</span>
+                          </div>
+                          <button 
+                            type="button"
+                            className="text-xs text-red-500 hover:text-red-700"
+                            onClick={handleRemoveImage}
+                          >
+                            移除
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">{imageFile.name}</p>
+                      </div>
+                    )}
+                    
+                    {/* 自动生成提示 */}
+                    {!imageFile && title.trim() && (
+                      <div className={`rounded-lg p-3 border transition-all duration-300 ${
+                        autoGenerateStatus === 'success' 
+                          ? 'bg-green-50 border-green-200' 
+                          : autoGenerateStatus === 'active'
+                          ? 'bg-blue-100 border-blue-300'
+                          : 'bg-blue-50 border-blue-200'
+                      }`}>
+                        <div className="flex items-center space-x-2">
+                          {autoGenerateStatus === 'success' ? (
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                          ) : autoGenerateStatus === 'active' ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          ) : (
+                            <Sparkles className="w-4 h-4 text-blue-500" />
+                          )}
+                          <span className={`text-sm font-medium ${
+                            autoGenerateStatus === 'success' ? 'text-green-700' : 'text-blue-700'
+                          }`}>
+                            {autoGenerateStatus === 'success' 
+                              ? '✅ 已启用自动生成图片' 
+                              : autoGenerateStatus === 'active'
+                              ? '🔄 正在生成图片...'
+                              : '将根据标题自动生成图片'
+                            }
+                          </span>
+                        </div>
+                        <p className={`text-xs mt-1 ${
+                          autoGenerateStatus === 'success' ? 'text-green-600' : 'text-blue-600'
+                        }`}>
+                          标题: "{title}"
+                          {autoGenerateStatus === 'success' && (
+                            <span className="block mt-1">提交时将自动生成个性化图片</span>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <AnimatePresence>
+                      {errors.image && (
+                        <motion.p
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className={`text-sm flex items-center ${
+                            errors.image.includes('推荐') ? 'text-blue-600' : 'text-red-600'
+                          }`}
+                        >
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          {errors.image}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
+                    
+                    {isUploadingImage && (
+                      <div className="flex items-center space-x-2 text-sm text-blue-600">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span>正在上传图片...</span>
+                      </div>
+                    )}
+                    
+                    {/* 生成的图片预览 */}
+                    {generatedImageUrl && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <Image className="w-5 h-5 text-blue-500" />
+                            <span className="text-sm font-medium text-blue-700">生成的图片预览</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setGeneratedImageUrl(null);
+                              setAutoGenerateStatus('idle');
+                            }}
+                            className="text-xs text-red-500 hover:text-red-700"
+                          >
+                            移除预览
+                          </button>
+                        </div>
+                        <div className="flex justify-center">
+                          <img
+                            src={generatedImageUrl}
+                            alt="生成的预览图片"
+                            className="max-w-full h-32 object-contain rounded-lg border border-blue-300"
+                          />
+                        </div>
+                        <p className="text-xs text-blue-600 mt-2 text-center">
+                          此图片将在提交时保存到事件中
+                        </p>
+                      </motion.div>
+                    )}
+
+                    {/* 自动生成成功提示 */}
+                    <AnimatePresence>
+                      {autoGenerateStatus === 'success' && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                          className="p-3 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle className="w-5 h-5 text-green-500" />
+                            <div>
+                              <div className="text-sm font-medium text-green-700">自动生成已启用</div>
+                              <div className="text-xs text-green-600 mt-1">
+                                将根据标题"{title}"生成个性化图片
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   {/* 结算条件 */}

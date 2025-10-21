@@ -21,6 +21,7 @@ export interface Prediction {
   min_stake: number
   criteria: string
   reference_url: string
+  image_url: string
   status: 'active' | 'completed' | 'cancelled'
   created_at: string
   updated_at: string
