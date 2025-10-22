@@ -30,7 +30,7 @@ export default function CreatingPage() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("科技");
   const [deadline, setDeadline] = useState("");
-  const [minStake, setMinStake] = useState("0.1");
+  const [minStake, setMinStake] = useState("1");
   const [criteria, setCriteria] = useState("");
   const [referenceUrl, setReferenceUrl] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -128,7 +128,7 @@ export default function CreatingPage() {
     if (!criteria.trim()) e.criteria = "请填写结算条件";
     if (criteria.length > 300) e.criteria = "结算条件不能超过300个字符";
     if (Number(minStake) <= 0) e.minStake = "最小押注需大于 0";
-    if (Number(minStake) > 10) e.minStake = "最小押注不能超过 10 ETH";
+    if (Number(minStake) > 10) e.minStake = "最小押注不能超过 10 USDT";
     if (referenceUrl && !isValidUrl(referenceUrl))
       e.referenceUrl = "请输入有效的URL";
     
@@ -608,7 +608,7 @@ export default function CreatingPage() {
                     <div className="space-y-2">
                       <label className="flex items-center text-sm font-semibold text-gray-700">
                         <Coins className="w-4 h-4 mr-2 text-purple-500" />
-                        最小押注 (ETH)
+                        最小押注 (USDT)
                         <span className="text-red-500 ml-1">*</span>
                       </label>
                       <input
@@ -1054,7 +1054,7 @@ export default function CreatingPage() {
                             </div>
                             <div className="flex items-center text-sm text-black">
                               <Coins className="w-4 h-4 mr-2 text-yellow-500" />
-                              <span>{minStake} ETH</span>
+                              <span>{minStake} USDT</span>
                             </div>
                           </div>
 

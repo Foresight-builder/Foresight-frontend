@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const { id } = await Promise.resolve(params);
 
     // 验证ID参数
     if (!id || isNaN(parseInt(id))) {

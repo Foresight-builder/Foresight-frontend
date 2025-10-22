@@ -56,7 +56,7 @@ INSERT INTO predictions (title, description, category, deadline, min_stake, crit
     '预测比特币价格在2025年12月31日前是否达到或超过10万美元',
     '科技',
     '2025-12-31 23:59:59',
-    0.1,
+    1,
     '根据CoinMarketCap官方数据，比特币价格在2025年12月31日23:59:59前达到或超过10万美元',
     'https://coinmarketcap.com/currencies/bitcoin/',
     'active'
@@ -66,7 +66,7 @@ INSERT INTO predictions (title, description, category, deadline, min_stake, crit
     '预测2024年全球平均气温是否超过历史最高记录',
     '天气',
     '2024-12-31 23:59:59',
-    0.05,
+    1,
     '根据世界气象组织发布的2024年全球平均气温数据，是否超过2023年的记录',
     'https://public.wmo.int/',
     'active'
