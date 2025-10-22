@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { WalletProvider } from "@/contexts/WalletContext";
 
 export default function RootLayout({
   children,
@@ -9,7 +10,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <div>{children}</div>
+        <WalletProvider>
+          <div>{children}</div>
+        </WalletProvider>
       </body>
     </html>
   );

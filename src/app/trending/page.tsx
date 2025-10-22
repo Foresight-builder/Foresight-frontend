@@ -16,9 +16,11 @@ import {
   Search,
   ChevronsUpDown,
   Check,
+  Heart
 } from "lucide-react";
 import TopNavBar from "@/components/TopNavBar";
 import Link from "next/link";
+import { useWallet } from "@/contexts/WalletContext";
 
 export default function TrendingPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -115,11 +117,60 @@ export default function TrendingPage() {
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [sortOption, setSortOption] = useState<"default" | "minInvestment-asc" | "insured-desc">("default");
-  const [displayCount, setDisplayCount] = useState(9);
+  const [displayCount, setDisplayCount] = useState(6);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [sortOpen, setSortOpen] = useState(false);
+  const [totalEventsCount, setTotalEventsCount] = useState(0);
   const sortRef = useRef<HTMLDivElement | null>(null);
   const productsSectionRef = useRef<HTMLElement | null>(null);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  
+  // 关注功能状态管理
+  const [followedEvents, setFollowedEvents] = useState<Set<number>>(new Set());
+  const { account } = useWallet();
+
+  // 获取分类热点数量
+  useEffect(() => {
+    const fetchCategoryCounts = async () => {
+      try {
+        const response = await fetch('/api/categories/counts');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            // 将数组转换为对象，方便查找
+            const countsObj: Record<string, number> = {};
+            data.data.forEach((item: { category: string; count: number }) => {
+              countsObj[item.category] = item.count;
+            });
+            setCategoryCounts(countsObj);
+          }
+        }
+      } catch (error) {
+        console.error('获取分类热点数量失败:', error);
+      }
+    };
+
+    fetchCategoryCounts();
+  }, []);
+
+  // 关注/取消关注事件
+  const toggleFollow = (eventIndex: number) => {
+    if (!account) {
+      // 如果用户未连接钱包，显示提示或引导连接
+      alert("请先连接钱包以关注事件");
+      return;
+    }
+    
+    setFollowedEvents(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(eventIndex)) {
+        newSet.delete(eventIndex);
+      } else {
+        newSet.add(eventIndex);
+      }
+      return newSet;
+    });
+  };
 
   // 自动轮播效果
   useEffect(() => {
@@ -175,9 +226,35 @@ export default function TrendingPage() {
         setSortOpen(false);
       }
     }
-    document.addEventListener("click", onDocClick);
-    return () => document.removeEventListener("click", onDocClick);
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
   }, [sortOpen]);
+
+  // 无限滚动功能
+  useEffect(() => {
+    const handleScroll = () => {
+      // 检查是否滚动到底部
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight;
+      const clientHeight = window.innerHeight;
+      
+      // 当距离底部小于100px时加载更多
+      if (scrollTop + clientHeight >= scrollHeight - 100) {
+        // 使用totalEventsCount作为总事件数
+        if (displayCount < totalEventsCount) {
+          setDisplayCount(prevCount => Math.min(prevCount + 6, totalEventsCount));
+        }
+      }
+    };
+
+    // 添加滚动监听
+    window.addEventListener('scroll', handleScroll);
+    
+    // 清理函数
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [displayCount, totalEventsCount]);
  
   useEffect(() => {
     const maybeCanvas = canvasRef.current;
@@ -278,11 +355,17 @@ export default function TrendingPage() {
     const fetchPredictions = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/predictions?limit=10');
+        // 移除limit参数，获取所有事件数据
+        const response = await fetch('/api/predictions');
         const result = await response.json();
         
         if (result.success) {
           setPredictions(result.data);
+          setTotalEventsCount(result.data.length);
+          // 确保displayCount不超过实际数据长度
+          if (result.data.length < 6) {
+            setDisplayCount(result.data.length);
+          }
         } else {
           setError(result.message || '获取数据失败');
         }
@@ -304,7 +387,7 @@ export default function TrendingPage() {
     insured: `${prediction.minStake} ETH`,
     minInvestment: `${prediction.minStake} ETH`,
     tag: prediction.category,
-    image: prediction.image_url || "https://images.unsplash.com/photo-1611224923853-80b023f02d71?auto=format&fit=crop&w=1000&q=80",
+    image: prediction.image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(prediction.title)}&size=400&backgroundColor=b6e3f4,c0aede,d1d4f9&radius=20`,
     deadline: prediction.deadline,
     criteria: prediction.criteria
   }));
@@ -753,8 +836,8 @@ export default function TrendingPage() {
             {categories.map((category, index) => {
               const isActive =
                 heroEvents[currentHeroIndex]?.category === category.name;
-              const categoryEvents = heroEvents.filter(
-                (event) => event.category === category.name
+              const categoryEvents = allEvents.filter(
+                (event) => event.tag === category.name
               );
 
               return (
@@ -786,7 +869,7 @@ export default function TrendingPage() {
                       <div>
                         <h3 className="font-bold text-lg">{category.name}</h3>
                         <p className="text-sm opacity-80">
-                          {categoryEvents.length}个热点
+                          {categoryCounts[category.name] || 0}个热点
                         </p>
                       </div>
                     </div>
@@ -877,23 +960,42 @@ export default function TrendingPage() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {sortedEvents.slice(0, displayCount).map((product, i) => (
-                <Link
-                  key={i}
-                  href={`/prediction/${predictions[i]?.id || i + 1}`}
-                  className="bg-white/70 rounded-2xl shadow-md border border-white/30 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105"
+                <div
+                  key={predictions[i]?.id || i}
+                  className="bg-white/70 rounded-2xl shadow-md border border-white/30 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 relative"
                 >
-                  {/* 产品图片 */}
-                  <div className="relative h-48 overflow-hidden">
-                    <img
-                      src={product.image}
-                      alt={product.title}
-                      className="w-full h-full object-cover transition-transform hover:scale-105 duration-300"
+                  {/* 关注按钮 */}
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleFollow(i);
+                    }}
+                    className="absolute top-3 left-3 z-10 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-md transition-all duration-300 hover:scale-110 hover:bg-white"
+                  >
+                    <Heart 
+                      className={`w-5 h-5 transition-all duration-300 ${
+                        followedEvents.has(i) 
+                          ? 'fill-red-500 text-red-500 scale-110' 
+                          : 'text-gray-500 hover:text-red-400'
+                      }`} 
                     />
-                    {/* 标签 */}
-                    <div className="absolute top-3 right-3 bg-gradient-to-r from-pink-400 to-purple-500 text-white text-sm px-3 py-1 rounded-full">
-                      {product.tag}
+                  </button>
+                  
+                  {/* 产品图片 */}
+                  <Link href={`/prediction/${predictions[i]?.id || i + 1}`}>
+                    <div className="relative h-48 overflow-hidden">
+                      <img
+                        src={product.image}
+                        alt={product.title}
+                        className="w-full h-full object-cover transition-transform hover:scale-105 duration-300"
+                      />
+                      {/* 标签 */}
+                      <div className="absolute top-3 right-3 bg-gradient-to-r from-pink-400 to-purple-500 text-white text-sm px-3 py-1 rounded-full">
+                        {product.tag}
+                      </div>
                     </div>
-                  </div>
+                  </Link>
 
                   {/* 产品信息 */}
                   <div className="p-5">
@@ -912,12 +1014,14 @@ export default function TrendingPage() {
                       <p className="text-black font-bold">
                         {product.minInvestment} 起投
                       </p>
-                      <button className="px-4 py-2 bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-full text-sm font-medium hover:from-pink-500 hover:to-purple-600 transition-all duration-300 shadow-md">
-                        查看详情
-                      </button>
+                      <Link href={`/prediction/${predictions[i]?.id || i + 1}`}>
+                        <button className="px-4 py-2 bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-full text-sm font-medium hover:from-pink-500 hover:to-purple-600 transition-all duration-300 shadow-md">
+                          查看详情
+                        </button>
+                      </Link>
                     </div>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
             
@@ -928,14 +1032,10 @@ export default function TrendingPage() {
               </div>
             )}
             
-            {sortedEvents.length > displayCount && (
+            {/* 加载更多提示 */}
+            {displayCount < totalEventsCount && (
               <div className="text-center mt-10">
-                <button
-                  onClick={() => setDisplayCount((c) => Math.min(c + 9, sortedEvents.length))}
-                  className="px-6 py-3 bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-full font-semibold"
-                >
-                  查看更多
-                </button>
+                <p className="text-black text-sm">继续下滑加载更多事件...</p>
               </div>
             )}
           </>

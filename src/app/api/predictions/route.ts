@@ -149,12 +149,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 如果没有提供图片URL，根据标题生成图片
+    // 优先使用上传的图片URL，如果没有上传则使用生成的图片
     let imageUrl: string;
     if (body.imageUrl) {
-      imageUrl = body.imageUrl;
+      // 如果imageUrl包含supabase.co，说明是上传的图片
+      if (body.imageUrl.includes('supabase.co')) {
+        imageUrl = body.imageUrl;
+      } else if (body.imageUrl.startsWith('https://')) {
+        imageUrl = body.imageUrl;
+      } else {
+        // 生成基于标题的图片URL
+        const seed = body.title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'prediction';
+        imageUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&size=400&backgroundColor=b6e3f4,c0aede,d1d4f9&radius=20`;
+      }
     } else {
-      // 使用DiceBear API根据标题生成图片
+      // 如果没有提供图片URL，根据标题生成图片
       const seed = body.title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'prediction';
       imageUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&size=400&backgroundColor=b6e3f4,c0aede,d1d4f9&radius=20`;
     }

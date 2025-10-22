@@ -4,29 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Copy, LogOut, Wallet, ExternalLink } from "lucide-react";
-
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: any[] }) => Promise<any>;
-      on?: (event: string, handler: (...args: any[]) => void) => void;
-      removeListener?: (
-        event: string,
-        handler: (...args: any[]) => void
-      ) => void;
-    };
-  }
-}
-
-const LOGOUT_FLAG = "fs_wallet_logged_out";
+import { useWallet } from "@/contexts/WalletContext";
 
 export default function TopNavBar() {
   const pathname = usePathname();
+  const {
+    account,
+    isConnecting,
+    connectError,
+    hasProvider,
+    chainId,
+    balanceEth,
+    balanceLoading,
+    connectWallet,
+    disconnectWallet,
+    formatAddress
+  } = useWallet();
 
-  const [account, setAccount] = useState<string | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [connectError, setConnectError] = useState<string | null>(null);
-  const [hasProvider, setHasProvider] = useState(false);
   const [mounted, setMounted] = useState(false);
   // 新增：头像菜单状态与复制状态
   const [menuOpen, setMenuOpen] = useState(false);
@@ -39,57 +33,9 @@ export default function TopNavBar() {
     top: 0,
     left: 0,
   });
-  // 新增：网络与余额状态
-  const [chainId, setChainId] = useState<string | null>(null);
-  const [balanceEth, setBalanceEth] = useState<string | null>(null);
-  const [balanceLoading, setBalanceLoading] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    const ethereum =
-      typeof window !== "undefined" ? window.ethereum : undefined;
-    if (!ethereum) {
-      setHasProvider(false);
-      return;
-    }
-    setHasProvider(true);
-
-    // 初始账户状态（如果之前已授权，且未在本会话主动退出）
-    const loggedOut =
-      typeof window !== "undefined" &&
-      sessionStorage.getItem(LOGOUT_FLAG) === "true";
-
-    if (!loggedOut) {
-      ethereum
-        .request({ method: "eth_accounts" })
-        .then((accounts: string[]) => {
-          setAccount(accounts && accounts.length > 0 ? accounts[0] : null);
-        })
-        .catch(() => {});
-    } else {
-      // 明确清理本地状态，避免复用旧账户数据
-      setAccount(null);
-      setChainId(null);
-      setBalanceEth(null);
-    }
-
-    // 账户变更监听
-    const handleAccountsChanged = (accounts: string[]) => {
-      const next = accounts && accounts.length > 0 ? accounts[0] : null;
-      setAccount(next);
-      if (!next) {
-        // 清理链与余额信息，避免复用旧数据
-        setChainId(null);
-        setBalanceEth(null);
-      }
-    };
-    ethereum.on?.("accountsChanged", handleAccountsChanged);
-    return () => {
-      ethereum.removeListener?.("accountsChanged", handleAccountsChanged);
-    };
   }, []);
 
   // 弹窗打开时锁定滚动，关闭时恢复
@@ -105,62 +51,9 @@ export default function TopNavBar() {
     };
   }, [connectError, mounted]);
 
-  const connectWallet = async () => {
-    setConnectError(null);
-    setIsConnecting(true);
-    const ethereum =
-      typeof window !== "undefined" ? window.ethereum : undefined;
-    try {
-      if (!ethereum) {
-        setHasProvider(false);
-        setConnectError("未检测到钱包，请安装 MetaMask");
-        window.open("https://metamask.io/download/", "_blank");
-        return;
-      }
-      setHasProvider(true);
-      // 重新连接前移除登出标记，避免静默复用
-      sessionStorage.removeItem(LOGOUT_FLAG);
-      const accounts: string[] = await ethereum.request({
-        method: "eth_requestAccounts",
-      });
-      setAccount(accounts && accounts.length > 0 ? accounts[0] : null);
-      setConnectError(null);
-    } catch (err: any) {
-      if (
-        err &&
-        (err.code === 4001 || err?.message?.includes("User rejected"))
-      ) {
-        setConnectError("用户拒绝连接钱包授权");
-      } else {
-        setConnectError(`连接失败：${err?.message || "未知错误"}`);
-      }
-      console.error("Wallet connection failed:", err);
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const formatAddress = (addr: string) =>
-    `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-
-  // 头像菜单：复制与断开（并尝试撤销权限与清理本地状态）
-  const disconnectWallet = async () => {
-    const ethereum =
-      typeof window !== "undefined" ? window.ethereum : undefined;
-    try {
-      await ethereum?.request?.({
-        method: "wallet_revokePermissions",
-        params: [{ eth_accounts: {} }],
-      });
-    } catch (e) {
-      console.warn("Revoke permissions unsupported or failed:", e);
-    }
-    // 设置本会话登出标记，阻止后续静默恢复
-    sessionStorage.setItem(LOGOUT_FLAG, "true");
-    // 清理本地状态，避免复用
-    setAccount(null);
-    setChainId(null);
-    setBalanceEth(null);
+  // 头像菜单：复制与断开
+  const handleDisconnectWallet = async () => {
+    await disconnectWallet();
     setMenuOpen(false);
   };
 
@@ -215,21 +108,15 @@ export default function TopNavBar() {
       typeof window !== "undefined" ? window.ethereum : undefined;
     if (!ethereum || !account) return;
     try {
-      setBalanceLoading(true);
       const cid: string = await ethereum.request({ method: "eth_chainId" });
-      setChainId(cid);
       const balHex: string = await ethereum.request({
         method: "eth_getBalance",
         params: [account, "latest"],
       });
       const balDec = parseInt(balHex, 16);
       const eth = balDec / 1e18;
-      setBalanceEth(eth.toFixed(4));
     } catch (e) {
       console.error("Fetch balance failed:", e);
-      setBalanceEth(null);
-    } finally {
-      setBalanceLoading(false);
     }
   };
 
@@ -498,7 +385,7 @@ export default function TopNavBar() {
                       <span>切换到 Sepolia 网络</span>
                     </button>
                     <button
-                      onClick={disconnectWallet}
+                      onClick={handleDisconnectWallet}
                       className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-md hover:bg-purple-50 text-black"
                     >
                       <LogOut className="w-4 h-4 text-black" />
