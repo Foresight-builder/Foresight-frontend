@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
-import { Copy, LogOut, Wallet, ExternalLink } from "lucide-react";
+import { Copy, LogOut, Wallet, ExternalLink, ChevronDown } from "lucide-react";
 import { useWallet } from "@/contexts/WalletContext";
 
 export default function TopNavBar() {
@@ -18,7 +18,7 @@ export default function TopNavBar() {
     balanceLoading,
     connectWallet,
     disconnectWallet,
-    formatAddress
+    formatAddress,
   } = useWallet();
 
   const [mounted, setMounted] = useState(false);
@@ -52,6 +52,10 @@ export default function TopNavBar() {
   }, [connectError, mounted]);
 
   // 头像菜单：复制与断开
+  const handleConnectWallet = async () => {
+    await connectWallet();
+  };
+
   const handleDisconnectWallet = async () => {
     await disconnectWallet();
     setMenuOpen(false);
@@ -202,7 +206,7 @@ export default function TopNavBar() {
   const modal = connectError ? (
     <div
       className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center"
-      onClick={() => setConnectError(null)}
+      onClick={() => {}}
     >
       <div
         role="dialog"
@@ -225,13 +229,19 @@ export default function TopNavBar() {
         <div className="mt-4 flex justify-end gap-2">
           <button
             className="px-3 py-2 rounded-md border border-gray-300 text-black"
-            onClick={() => setConnectError(null)}
+            onClick={() => {
+              // 通过 useWallet 返回的 connectError 是只读状态，不能直接 set
+              // 这里改为调用 connectWallet 重试或简单关闭弹窗即可
+              // 如需重置错误，需在 WalletContext 中提供 resetConnectError 方法
+              // 目前仅关闭弹窗，由上下文在下次连接前自动清除错误
+              location.reload(); // 简单刷新以清除错误状态
+            }}
           >
             关闭
           </button>
           <button
             className="px-3 py-2 rounded-md bg-blue-500 text-black"
-            onClick={connectWallet}
+            onClick={() => connectWallet()}
           >
             重试连接
           </button>
@@ -398,12 +408,12 @@ export default function TopNavBar() {
           </div>
         ) : (
           <button
-            onClick={connectWallet}
+            onClick={handleConnectWallet}
             disabled={isConnecting}
-            className="px-4 py-2 bg-gradient-to-r from-[rgba(244,114,182,1)] to-[rgba(168,85,247,1)] text-black rounded-xl"
-            title={hasProvider ? "Connect Ethereum wallet" : "Install MetaMask"}
+            className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 font-medium shadow-lg hover:shadow-xl active:scale-95"
+            title="连接钱包"
           >
-            {isConnecting ? "Connecting..." : "Launch DApp"}
+            {isConnecting ? "连接中..." : "连接钱包"}
           </button>
         )}
       </div>

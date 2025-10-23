@@ -1,4 +1,8 @@
 const { createClient } = require('@supabase/supabase-js');
+const dotenv = require('dotenv');
+
+// 加载.env.local文件中的环境变量
+dotenv.config({ path: '.env.local' });
 
 // 从环境变量获取Supabase配置
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -7,6 +11,8 @@ const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 if (!supabaseUrl || !supabaseKey) {
   console.log('❌ 环境变量未设置');
   console.log('请检查.env.local文件中的配置');
+  console.log('NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? '已设置' : '未设置');
+  console.log('SUPABASE_SERVICE_KEY:', process.env.SUPABASE_SERVICE_KEY ? '已设置' : '未设置');
   process.exit(1);
 }
 

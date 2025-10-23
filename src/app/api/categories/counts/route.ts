@@ -42,6 +42,10 @@ export async function GET() {
       success: true,
       data: categoryCounts,
       message: '获取分类热点数量成功'
+    }, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
     });
     
   } catch (error) {

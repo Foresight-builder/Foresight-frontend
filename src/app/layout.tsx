@@ -11,7 +11,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <WalletProvider>
-          <div>{children}</div>
+          {children}
         </WalletProvider>
       </body>
     </html>

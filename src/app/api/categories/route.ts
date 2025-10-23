@@ -23,6 +23,10 @@ export async function GET() {
       success: true,
       data: categories,
       message: '获取分类列表成功'
+    }, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
     });
     
   } catch (error) {

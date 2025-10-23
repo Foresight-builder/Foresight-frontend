@@ -1,5 +1,6 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { ethers } from 'ethers';
 
 declare global {
   interface Window {
@@ -7,6 +8,7 @@ declare global {
       request: (args: { method: string; params?: any[] }) => Promise<any>;
       on?: (event: string, handler: (...args: any[]) => void) => void;
       removeListener?: (event: string, handler: (...args: any[]) => void) => void;
+      isMetaMask?: boolean;
     };
   }
 }
@@ -46,130 +48,119 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
+    
+    // 检查是否有可用的钱包提供者
+    const hasProvider = !!(window as any).ethereum?.isMetaMask;
+    setWalletState(prev => ({ ...prev, hasProvider }));
+    
+    // 检查是否有已连接的钱包
+    const checkConnection = async () => {
+      try {
+        const ethereum = (window as any).ethereum;
+        if (ethereum) {
+          const accounts = await ethereum.request({ method: 'eth_accounts' });
+          if (accounts && accounts.length > 0) {
+            setWalletState(prev => ({
+              ...prev,
+              account: accounts[0],
+            }));
+            
+            // 设置事件监听
+            setupEventListeners();
+          }
+        }
+      } catch (error) {
+        console.error("检查钱包连接失败:", error);
+      }
+    };
+    
+    checkConnection();
   }, []);
 
-  useEffect(() => {
-    const ethereum = typeof window !== 'undefined' ? window.ethereum : undefined;
-    if (!ethereum) {
-      setWalletState(prev => ({ ...prev, hasProvider: false }));
-      return;
+  const setupEventListeners = () => {
+    const ethereum = (window as any).ethereum;
+    if (ethereum && ethereum.on) {
+      ethereum.on('accountsChanged', (accounts: string[]) => {
+        if (accounts.length > 0) {
+          setWalletState(prev => ({ ...prev, account: accounts[0] }));
+        } else {
+          setWalletState(prev => ({ 
+            ...prev, 
+            account: null,
+            chainId: null,
+            balanceEth: null 
+          }));
+        }
+      });
+
+      ethereum.on('chainChanged', () => {
+        window.location.reload();
+      });
     }
-
-    setWalletState(prev => ({ ...prev, hasProvider: true }));
-
-    // 初始账户状态（如果之前已授权，且未在本会话主动退出）
-    const loggedOut = typeof window !== 'undefined' && sessionStorage.getItem(LOGOUT_FLAG) === 'true';
-
-    if (!loggedOut) {
-      ethereum
-        .request({ method: "eth_accounts" })
-        .then((accounts: string[]) => {
-          const account = accounts && accounts.length > 0 ? accounts[0] : null;
-          setWalletState(prev => ({ ...prev, account }));
-        })
-        .catch(() => {});
-    } else {
-      // 明确清理本地状态，避免复用旧账户数据
-      setWalletState(prev => ({ 
-        ...prev, 
-        account: null, 
-        chainId: null, 
-        balanceEth: null 
-      }));
-    }
-
-    // 账户变更监听
-    const handleAccountsChanged = (accounts: string[]) => {
-      const account = accounts && accounts.length > 0 ? accounts[0] : null;
-      setWalletState(prev => ({ 
-        ...prev, 
-        account,
-        chainId: account ? prev.chainId : null,
-        balanceEth: account ? prev.balanceEth : null
-      }));
-    };
-
-    // 网络变更监听
-    const handleChainChanged = (chainId: string) => {
-      setWalletState(prev => ({ ...prev, chainId }));
-    };
-
-    ethereum.on?.("accountsChanged", handleAccountsChanged);
-    ethereum.on?.("chainChanged", handleChainChanged);
-
-    return () => {
-      ethereum.removeListener?.("accountsChanged", handleAccountsChanged);
-      ethereum.removeListener?.("chainChanged", handleChainChanged);
-    };
-  }, []);
+  };
 
   const connectWallet = async () => {
-    setWalletState(prev => ({ ...prev, connectError: null, isConnecting: true }));
-    const ethereum = typeof window !== 'undefined' ? window.ethereum : undefined;
-    
+    if (!mounted) return;
+
+    setWalletState(prev => ({ 
+      ...prev, 
+      isConnecting: true, 
+      connectError: null
+    }));
+
     try {
-      if (!ethereum) {
-        setWalletState(prev => ({ 
-          ...prev, 
-          hasProvider: false, 
-          connectError: "未检测到钱包，请安装 MetaMask" 
-        }));
-        window.open("https://metamask.io/download/", "_blank");
-        return;
+      const ethereum = (window as any).ethereum;
+      if (!ethereum?.isMetaMask) {
+        throw new Error('请安装MetaMask钱包');
       }
 
-      setWalletState(prev => ({ ...prev, hasProvider: true }));
+      const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
       
-      // 重新连接前移除登出标记，避免静默复用
-      sessionStorage.removeItem(LOGOUT_FLAG);
-      
-      const accounts: string[] = await ethereum.request({
-        method: "eth_requestAccounts",
-      });
-      
-      const account = accounts && accounts.length > 0 ? accounts[0] : null;
-      setWalletState(prev => ({ 
-        ...prev, 
-        account, 
-        connectError: null, 
-        isConnecting: false 
-      }));
-    } catch (err: any) {
-      const errorMessage = err && (err.code === 4001 || err?.message?.includes("User rejected"))
-        ? "用户拒绝连接钱包授权"
-        : `连接失败：${err?.message || "未知错误"}`;
+      if (accounts && accounts.length > 0) {
+        const provider = new ethers.BrowserProvider(ethereum);
+        const network = await provider.getNetwork();
         
-      setWalletState(prev => ({ 
-        ...prev, 
-        connectError: errorMessage, 
-        isConnecting: false 
+        setWalletState(prev => ({
+          ...prev,
+          account: accounts[0],
+          chainId: network.chainId.toString(),
+          isConnecting: false,
+        }));
+        
+        // 设置事件监听
+        setupEventListeners();
+        
+        // 清除退出标记
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem(LOGOUT_FLAG);
+        }
+      }
+    } catch (error: any) {
+      console.error("连接钱包失败:", error);
+      setWalletState(prev => ({
+        ...prev,
+        isConnecting: false,
+        connectError: error.message || "连接钱包失败"
       }));
-      console.error("Wallet connection failed:", err);
     }
   };
 
   const disconnectWallet = async () => {
-    const ethereum = typeof window !== 'undefined' ? window.ethereum : undefined;
-    
     try {
-      await ethereum?.request?.({
-        method: "wallet_revokePermissions",
-        params: [{ eth_accounts: {} }],
-      });
-    } catch (e) {
-      console.warn("Revoke permissions unsupported or failed:", e);
+      setWalletState(prev => ({
+        ...prev,
+        account: null,
+        chainId: null,
+        balanceEth: null,
+      }));
+      
+      // 设置退出标记
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(LOGOUT_FLAG, "true");
+      }
+    } catch (error) {
+      console.error("断开钱包连接失败:", error);
     }
-    
-    // 设置本会话登出标记，阻止后续静默恢复
-    sessionStorage.setItem(LOGOUT_FLAG, "true");
-    
-    // 清理本地状态，避免复用
-    setWalletState(prev => ({
-      ...prev,
-      account: null,
-      chainId: null,
-      balanceEth: null,
-    }));
   };
 
   const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;

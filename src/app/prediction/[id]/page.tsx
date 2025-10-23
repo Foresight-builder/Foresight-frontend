@@ -82,6 +82,9 @@ export default function PredictionDetailPage() {
   }, [params.id]);
 
   useEffect(() => {
+    // 设置页面进入动画状态
+    setEntered(true);
+    
     const onScroll = () => {
       if (typeof window !== 'undefined') {
         setShowScrollTop(window.scrollY > 200);
@@ -302,11 +305,11 @@ export default function PredictionDetailPage() {
                     <div className="text-sm text-gray-600">押注次数</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600">{prediction.stats.totalAmount.toFixed(2)}</div>
+                    <div className="text-2xl font-bold text-purple-600">{prediction.stats.totalAmount.toFixed(2)} USDT</div>
                     <div className="text-sm text-gray-600">总押注金额</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-orange-600">{prediction.minStake}</div>
+                    <div className="text-2xl font-bold text-orange-600">{prediction.minStake} USDT</div>
                     <div className="text-sm text-gray-600">最小押注</div>
                   </div>
                 </div>
@@ -328,8 +331,8 @@ export default function PredictionDetailPage() {
                 {/* 金额分布 */}
                 <div>
                   <div className="flex justify-between text-sm text-gray-600 mb-2">
-                    <span>是: {prediction.stats.yesAmount.toFixed(2)}</span>
-                    <span>否: {prediction.stats.noAmount.toFixed(2)}</span>
+                    <span>是: {prediction.stats.yesAmount.toFixed(2)} USDT</span>
+                    <span>否: {prediction.stats.noAmount.toFixed(2)} USDT</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3">
                     <div 
@@ -354,7 +357,7 @@ export default function PredictionDetailPage() {
                   反对 (预测不达成)
                 </button>
               </div>
-              <p className="text-sm text-gray-600 mt-3">最小押注金额: {prediction.minStake}</p>
+              <p className="text-sm text-gray-600 mt-3">最小押注金额: {prediction.minStake} USDT</p>
             </div>
           )}
         </div>

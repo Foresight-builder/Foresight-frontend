@@ -46,6 +46,10 @@ export async function GET(request: NextRequest) {
       success: true,
       data: predictions,
       message: '获取预测事件列表成功'
+    }, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
     });
     
   } catch (error) {

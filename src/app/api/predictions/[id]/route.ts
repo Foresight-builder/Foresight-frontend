@@ -121,6 +121,10 @@ export async function GET(
       success: true,
       data: predictionDetail,
       message: '获取预测事件详情成功'
+    }, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
     });
     
   } catch (error) {
