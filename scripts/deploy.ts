@@ -1,10 +1,31 @@
-import { ethers } from "hardhat";
+/// <reference types="@nomicfoundation/hardhat-ethers" />
+import hre from "hardhat";
+import fs from "fs";
 
 async function main() {
   console.log("Deploying Foresight contract...");
 
-  const Foresight = await ethers.getContractFactory("Foresight");
-  const foresight = await Foresight.deploy();
+  const network = await hre.ethers.provider.getNetwork();
+  const chainId = Number(network.chainId);
+
+  // 读取抵押代币地址
+  const explicit = process.env.COLLATERAL_TOKEN_ADDRESS || "";
+  const polygonUSDT = process.env.USDT_ADDRESS_POLYGON || "";
+  const amoyUSDT = process.env.USDT_ADDRESS_AMOY || "";
+
+  let tokenAddress = explicit;
+  if (!tokenAddress) {
+    if (chainId === 137) tokenAddress = polygonUSDT;
+    else if (chainId === 80002) tokenAddress = amoyUSDT;
+  }
+  if (!tokenAddress) {
+    throw new Error(
+      `Missing collateral token address for chainId ${chainId}. Set COLLATERAL_TOKEN_ADDRESS or USDT_ADDRESS_POLYGON/USDT_ADDRESS_AMOY.`
+    );
+  }
+
+  const Foresight = await hre.ethers.getContractFactory("Foresight");
+  const foresight = await Foresight.deploy(tokenAddress);
 
   await foresight.waitForDeployment();
 
@@ -12,12 +33,14 @@ async function main() {
   console.log(`Foresight deployed to: ${address}`);
 
   // 保存部署信息到文件
-  const fs = require("fs");
+  const [deployer] = await hre.ethers.getSigners();
+  const deployerAddress = await deployer.getAddress();
   const deploymentInfo = {
-    network: "hardhat",
+    network: chainId,
     contract: "Foresight",
     address: address,
-    deployer: (await ethers.provider.getSigner()).address,
+    collateralToken: tokenAddress,
+    deployer: deployerAddress,
     timestamp: new Date().toISOString()
   };
 

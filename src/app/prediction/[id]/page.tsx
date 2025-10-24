@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Loader2, ArrowUp } from 'lucide-react';
+import { ethers } from 'ethers';
 
 interface PredictionDetail {
   id: number;
@@ -43,6 +44,9 @@ export default function PredictionDetailPage() {
   const [entered, setEntered] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [staking, setStaking] = useState(false);
+  const [stakeError, setStakeError] = useState<string | null>(null);
+  const [stakeSuccess, setStakeSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPredictionDetail = async () => {
@@ -98,6 +102,122 @@ export default function PredictionDetailPage() {
   useEffect(() => {
     router.prefetch('/trending');
   }, [router]);
+
+  // ERC20/合约 ABI（最小化）
+  const erc20Abi = [
+    'function decimals() view returns (uint8)',
+    'function allowance(address owner, address spender) view returns (uint256)',
+    'function approve(address spender, uint256 value) returns (bool)'
+  ];
+  const foresightAbi = [
+    'function getPredictionCount() view returns (uint256)',
+    'function stake(uint256 _predictionId, uint256 _option, uint256 amount)'
+  ];
+
+  // 地址解析（基于 chainId）
+  function resolveAddresses(chainId: number): { foresight: string; usdt: string } {
+    const env = process.env as Record<string, string | undefined>;
+  
+    const defaultForesight = (env.NEXT_PUBLIC_FORESIGHT_ADDRESS || '').trim();
+    const defaultUsdt = (env.NEXT_PUBLIC_USDT_ADDRESS || '').trim();
+  
+    const map: Record<number, { foresight?: string; usdt?: string }> = {
+      137: {
+        foresight: env.NEXT_PUBLIC_FORESIGHT_ADDRESS_POLYGON,
+        usdt: env.NEXT_PUBLIC_USDT_ADDRESS_POLYGON,
+      },
+      80002: {
+        foresight: env.NEXT_PUBLIC_FORESIGHT_ADDRESS_AMOY,
+        usdt: env.NEXT_PUBLIC_USDT_ADDRESS_AMOY,
+      },
+      11155111: {
+        foresight: env.NEXT_PUBLIC_FORESIGHT_ADDRESS_SEPOLIA,
+        usdt: env.NEXT_PUBLIC_USDT_ADDRESS_SEPOLIA,
+      },
+      31337: {
+        foresight: env.NEXT_PUBLIC_FORESIGHT_ADDRESS_LOCALHOST,
+        usdt: env.NEXT_PUBLIC_USDT_ADDRESS_LOCALHOST,
+      },
+    };
+  
+    const fromMap = map[chainId] || {};
+    const foresight = ((fromMap.foresight || defaultForesight) || '').trim();
+    const usdt = ((fromMap.usdt || defaultUsdt) || '').trim();
+  
+    return { foresight, usdt };
+  }
+  
+  // 将任意小数按指定 decimals 转为最小单位 BigInt
+  function parseUnitsByDecimals(value: number | string, decimals: number): bigint {
+    const str = typeof value === 'number' ? String(value) : value;
+    try {
+      return ethers.parseUnits(str, decimals);
+    } catch {
+      // 兜底处理，避免浮点误差
+      const parts = str.split('.');
+      if (parts.length === 1) {
+        return BigInt(parts[0]) * (BigInt(10) ** BigInt(decimals));
+      }
+      const [intPart, fracRaw] = parts;
+      const frac = (fracRaw || '').slice(0, decimals).padEnd(decimals, '0');
+      return BigInt(intPart || '0') * (BigInt(10) ** BigInt(decimals)) + BigInt(frac || '0');
+    }
+  }
+
+  const handleStake = async (option: 'yes' | 'no') => {
+    try {
+      setStakeError(null);
+      setStakeSuccess(null);
+      setStaking(true);
+
+      if (!prediction) throw new Error('预测事件未加载');
+      if (typeof window === 'undefined' || !(window as any).ethereum) {
+        throw new Error('请先连接钱包');
+      }
+
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const signer = await provider.getSigner();
+      const network = await provider.getNetwork();
+      const chainIdNum = Number(network.chainId);
+      const { foresight, usdt } = resolveAddresses(chainIdNum);
+      if (!foresight || !usdt) {
+        throw new Error('未配置当前网络的合约或USDT地址');
+      }
+
+      const account = await signer.getAddress();
+      const token = new ethers.Contract(usdt, erc20Abi, signer);
+      let decimals = 6;
+      try {
+        decimals = await token.decimals();
+      } catch {}
+      const amount = parseUnitsByDecimals(prediction.minStake, Number(decimals));
+
+      // 先检查并授权
+      const allowance: bigint = await token.allowance(account, foresight);
+      if (allowance < amount) {
+        const txApprove = await token.approve(foresight, amount);
+        await txApprove.wait();
+      }
+
+      // 确认链上预测是否存在（默认使用 off-chain 的 id 作为链上 id）
+      const foresightContract = new ethers.Contract(foresight, foresightAbi, signer);
+      const count: bigint = await foresightContract.getPredictionCount();
+      if (BigInt(prediction.id) >= count) {
+        throw new Error('该事件尚未在链上创建，暂不可押注');
+      }
+
+      // 选项映射：yes -> 1, no -> 0
+      const optionIndex = option === 'yes' ? 1 : 0;
+      const txStake = await foresightContract.stake(prediction.id, optionIndex, amount);
+      const receipt = await txStake.wait();
+
+      setStakeSuccess(`押注成功，交易哈希：${receipt?.hash || ''}`);
+    } catch (e: any) {
+      setStakeError(e?.message || '押注失败');
+    } finally {
+      setStaking(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -328,14 +448,28 @@ export default function PredictionDetailPage() {
             <div className="mt-6 bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 p-6">
               <h3 className="text-xl font-semibold mb-4 text-gray-800">参与押注</h3>
               <div className="flex gap-3">
-                <button className="flex-1 py-3 px-4 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors">
-                  支持 (预测达成)
+                <button
+                  onClick={() => handleStake('yes')}
+                  disabled={staking}
+                  className="flex-1 py-3 px-4 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors disabled:opacity-50"
+                >
+                  {staking ? '处理中…' : '支持 (预测达成)'}
                 </button>
-                <button className="flex-1 py-3 px-4 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors">
-                  反对 (预测不达成)
+                <button
+                  onClick={() => handleStake('no')}
+                  disabled={staking}
+                  className="flex-1 py-3 px-4 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors disabled:opacity-50"
+                >
+                  {staking ? '处理中…' : '反对 (预测不达成)'}
                 </button>
               </div>
               <p className="text-sm text-gray-600 mt-3">最小押注金额: {prediction.minStake} USDT</p>
+              {stakeError && (
+                <p className="text-sm text-red-600 mt-2">{stakeError}</p>
+              )}
+              {stakeSuccess && (
+                <p className="text-sm text-green-600 mt-2">{stakeSuccess}</p>
+              )}
             </div>
           )}
         </div>
