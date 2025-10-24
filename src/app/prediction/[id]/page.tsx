@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Loader2, Share2, Check, ArrowUp } from 'lucide-react';
+import { ChevronLeft, Loader2, ArrowUp } from 'lucide-react';
 
 interface PredictionDetail {
   id: number;
@@ -182,29 +182,7 @@ export default function PredictionDetailPage() {
             )}
             <span className="text-sm font-medium">{isPending ? '返回中…' : '返回'}</span>
           </button>
-          {/* 分享按钮 */}
-          <button
-            type="button"
-            aria-label="复制链接"
-            title="复制链接"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(window.location.href);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              } catch (e) {
-                console.error('复制失败', e);
-              }
-            }}
-            className="mb-6 ml-3 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/60 backdrop-blur-md border border-gray-200 text-gray-700 hover:text-gray-800 hover:bg-white/75 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 focus:ring-offset-white"
-          >
-            {copied ? (
-              <Check className="w-4 h-4 text-green-600" />
-            ) : (
-              <Share2 className="w-4 h-4 text-gray-600" />
-            )}
-            <span className="text-sm font-medium">{copied ? '已复制' : '分享'}</span>
-          </button>
+
 
           {/* 预测事件卡片 - 与creating预览保持一致 */}
           <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 overflow-hidden">
@@ -371,10 +349,24 @@ export default function PredictionDetailPage() {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }
           }}
-          className={`${showScrollTop ? 'opacity-100' : 'opacity-0 pointer-events-none'} fixed bottom-6 right-6 inline-flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-white/90 backdrop-blur-md border border-gray-200 text-gray-700 shadow-md hover:shadow-lg hover:bg-white transition-all focus:outline-none focus:ring-2 focus:ring-gray-300`}
+          className={`${showScrollTop ? 'opacity-100 scale-100' : 'opacity-0 scale-0 pointer-events-none'} fixed bottom-8 right-8 z-50 w-10 h-10 bg-gradient-to-br from-white/90 to-pink-100/90 rounded-full shadow-lg border border-pink-200/50 backdrop-blur-sm overflow-hidden group hover:scale-110 hover:shadow-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-pink-300`}
         >
-          <ArrowUp className="w-4 h-4" />
-          <span className="text-sm">顶部</span>
+          {/* 背景质感效果 */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-pink-100/40 group-hover:from-white/60 group-hover:to-pink-100/60 transition-all duration-300"></div>
+          
+          {/* 箭头图标 */}
+          <div className="relative z-10 flex items-center justify-center w-full h-full">
+            <div className="animate-bounce">
+              <svg className="w-4 h-4 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="18 15 12 9 6 15"/>
+              </svg>
+            </div>
+          </div>
+          
+          {/* 悬浮提示 */}
+          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+            返回顶部
+          </div>
         </button>
       </div>
     </div>

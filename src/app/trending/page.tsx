@@ -1306,22 +1306,22 @@ export default function TrendingPage() {
               prevHero();
               createSmartClickEffect(e);
             }}
-            className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow-lg transition-all duration-300 relative overflow-hidden"
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white p-3 rounded-full shadow-xl transition-all duration-300 z-20 backdrop-blur-sm border border-white/20"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
           >
-            <ChevronLeft className="w-6 h-6 text-black" />
+            <ChevronLeft className="w-5 h-5 text-gray-800" />
           </motion.button>
           <motion.button
             onClick={(e) => {
               nextHero();
               createSmartClickEffect(e);
             }}
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow-lg transition-all duration-300 relative overflow-hidden"
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/90 hover:bg-white p-3 rounded-full shadow-xl transition-all duration-300 z-20 backdrop-blur-sm border border-white/20"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
           >
-            <ChevronRight className="w-6 h-6 text-black" />
+            <ChevronRight className="w-5 h-5 text-gray-800" />
           </motion.button>
         </div>
 
@@ -1671,7 +1671,7 @@ export default function TrendingPage() {
               scrollToTop();
               createSmartClickEffect(e);
             }}
-            className="fixed bottom-8 right-8 z-50 w-10 h-10 bg-gradient-to-br from-white/90 to-gray-100/90 rounded-full shadow-lg border border-gray-200/50 backdrop-blur-sm overflow-hidden group"
+            className="fixed bottom-8 right-8 z-50 w-10 h-10 bg-gradient-to-br from-white/90 to-pink-100/90 rounded-full shadow-lg border border-pink-200/50 backdrop-blur-sm overflow-hidden group"
             whileHover={{ 
               scale: 1.1,
               boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)"
@@ -1684,50 +1684,15 @@ export default function TrendingPage() {
             }}
           >
             {/* 背景质感效果 */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-gray-100/40 group-hover:from-white/60 group-hover:to-gray-100/60 transition-all duration-300"></div>
-            
-            {/* 进度环 */}
-            <div className="absolute inset-0">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  fill="none"
-                  stroke="rgba(0, 0, 0, 0.1)"
-                  strokeWidth="2"
-                />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  fill="none"
-                  stroke="rgba(0, 0, 0, 0.3)"
-                  strokeWidth="2"
-                  strokeDasharray="251"
-                  strokeDashoffset={251 - (scrollProgress * 251) / 100}
-                  strokeLinecap="round"
-                  className="transition-all duration-150"
-                />
-              </svg>
-            </div>
+            <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-pink-100/40 group-hover:from-white/60 group-hover:to-pink-100/60 transition-all duration-300"></div>
             
             {/* 箭头图标 */}
             <div className="relative z-10 flex items-center justify-center w-full h-full">
-              <motion.div
-                animate={{
-                  y: [0, -1, 0]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              >
+              <div className="animate-bounce">
                 <svg className="w-4 h-4 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="18 15 12 9 6 15"/>
                 </svg>
-              </motion.div>
+              </div>
             </div>
             
             {/* 悬浮提示 */}

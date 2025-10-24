@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Copy, LogOut, Wallet, ExternalLink, ChevronDown } from "lucide-react";
 import { useWallet } from "@/contexts/WalletContext";
+import WalletModal from "./WalletModal";
 
 export default function TopNavBar() {
   const pathname = usePathname();
@@ -19,17 +20,27 @@ export default function TopNavBar() {
     connectWallet,
     disconnectWallet,
     formatAddress,
+    availableWallets,
+    currentWalletType,
   } = useWallet();
 
   const [mounted, setMounted] = useState(false);
   // 新增：头像菜单状态与复制状态
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [walletSelectorOpen, setWalletSelectorOpen] = useState(false);
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const walletSelectorRef = useRef<HTMLDivElement | null>(null);
   // 新增：用于菜单定位与门户内点击判断
   const avatarRef = useRef<HTMLImageElement | null>(null);
   const menuContentRef = useRef<HTMLDivElement | null>(null);
+  const walletButtonRef = useRef<HTMLButtonElement | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+  const [walletSelectorPos, setWalletSelectorPos] = useState<{ top: number; left: number }>({
     top: 0,
     left: 0,
   });
@@ -52,8 +63,13 @@ export default function TopNavBar() {
   }, [connectError, mounted]);
 
   // 头像菜单：复制与断开
-  const handleConnectWallet = async () => {
-    await connectWallet();
+  const handleConnectWallet = async (walletType?: 'metamask' | 'coinbase' | 'binance') => {
+    await connectWallet(walletType);
+    setWalletSelectorOpen(false);
+  };
+
+  const handleWalletSelectorToggle = () => {
+    setWalletSelectorOpen(!walletSelectorOpen);
   };
 
   const handleDisconnectWallet = async () => {
@@ -161,10 +177,17 @@ export default function TopNavBar() {
       if (avatarRef.current && avatarRef.current.contains(target)) return;
       if (menuContentRef.current && menuContentRef.current.contains(target))
         return;
+      // 点击钱包选择器按钮或内容不关闭
+      if (walletButtonRef.current && walletButtonRef.current.contains(target)) return;
+      if (walletSelectorRef.current && walletSelectorRef.current.contains(target)) return;
       setMenuOpen(false);
+      setWalletSelectorOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        setWalletSelectorOpen(false);
+      }
     };
     document.addEventListener("mousedown", onDocClick);
     document.addEventListener("keydown", onKey);
@@ -201,6 +224,34 @@ export default function TopNavBar() {
       };
     }
   }, [menuOpen]);
+
+  // 新增：根据钱包按钮位置计算选择器的固定坐标
+  useEffect(() => {
+    const updateWalletSelectorPosition = () => {
+      if (!walletButtonRef.current) return;
+      const rect = walletButtonRef.current.getBoundingClientRect();
+      const selectorWidth = 200; // 选择器宽度
+      const gap = 8; // 8px 间距
+      let left = rect.left;
+      let top = rect.bottom + gap;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      left = Math.max(8, Math.min(left, vw - selectorWidth - 8));
+      top = Math.max(8, Math.min(top, vh - 8));
+      setWalletSelectorPos({ top, left });
+    };
+
+    if (walletSelectorOpen) {
+      updateWalletSelectorPosition();
+      const handler = () => updateWalletSelectorPosition();
+      window.addEventListener("resize", handler);
+      window.addEventListener("scroll", handler, true);
+      return () => {
+        window.removeEventListener("resize", handler);
+        window.removeEventListener("scroll", handler, true);
+      };
+    }
+  }, [walletSelectorOpen]);
 
   // 弹窗元素（通过 Portal 渲染，避免被任何父级 z-index/overflow 影响）
   const modal = connectError ? (
@@ -332,6 +383,14 @@ export default function TopNavBar() {
               />
             </div>
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full ring-2 ring-white dark:ring-[#0a0a0a]" />
+            {/* 显示当前连接的钱包类型 */}
+            {currentWalletType && (
+              <span className="absolute -top-1 -right-1 text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded-full">
+                {currentWalletType === 'metamask' ? 'MM' : 
+                 currentWalletType === 'coinbase' ? 'CB' : 
+                 currentWalletType === 'okx' ? 'OKX' : 'BN'}
+              </span>
+            )}
             {/* 菜单通过 Portal 渲染为最高优先级 */}
             {menuOpen &&
               mounted &&
@@ -407,18 +466,29 @@ export default function TopNavBar() {
               )}
           </div>
         ) : (
-          <button
-            onClick={handleConnectWallet}
-            disabled={isConnecting}
-            className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 font-medium shadow-lg hover:shadow-xl active:scale-95"
-            title="连接钱包"
-          >
-            {isConnecting ? "连接中..." : "连接钱包"}
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setWalletModalOpen(true)}
+              disabled={isConnecting}
+              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 font-medium shadow-lg hover:shadow-xl active:scale-95 flex items-center gap-2"
+              title="连接钱包"
+            >
+              {isConnecting ? "连接中..." : "连接钱包"}
+              <Wallet className="w-4 h-4" />
+            </button>
+          </div>
         )}
       </div>
 
       {mounted && modal && createPortal(modal, document.body)}
+      
+      {/* 钱包连接弹窗 */}
+      {mounted && (
+        <WalletModal 
+          isOpen={walletModalOpen} 
+          onClose={() => setWalletModalOpen(false)} 
+        />
+      )}
     </nav>
   );
 }

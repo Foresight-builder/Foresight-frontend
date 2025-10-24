@@ -2,11 +2,18 @@
   "name": "forsight",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "migrate:supabase": "tsx scripts/migrate-to-supabase.ts"
+    "migrate:supabase": "tsx scripts/migrate-to-supabase.ts",
+    "hardhat:compile": "hardhat compile",
+    "hardhat:test": "hardhat test",
+    "hardhat:node": "hardhat node",
+    "hardhat:deploy": "hardhat run scripts/deploy.ts --network localhost",
+    "hardhat:deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
+    "hardhat:verify": "hardhat verify --network sepolia"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.75.1",
@@ -23,10 +30,13 @@
     "wagmi": "^2.18.1"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@nomicfoundation/hardhat-verify": "^2.1.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "hardhat": "^3.0.9",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
