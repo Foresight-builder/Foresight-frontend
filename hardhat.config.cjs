@@ -12,6 +12,11 @@ const {
   REPORT_GAS
 } = process.env;
 
+function validPK(pk) {
+  return typeof pk === "string" && /^0x[0-9a-fA-F]{64}$/.test(pk);
+}
+const accounts = validPK(PRIVATE_KEY) ? [PRIVATE_KEY] : undefined;
+
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
@@ -25,22 +30,22 @@ module.exports = {
     localhost: { url: "http://127.0.0.1:8545", chainId: 1337 },
     sepolia: {
       url: SEPOLIA_RPC_URL || "",
-      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+      ...(accounts ? { accounts } : {}),
       chainId: 11155111
     },
     mainnet: {
       url: MAINNET_RPC_URL || "",
-      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+      ...(accounts ? { accounts } : {}),
       chainId: 1
     },
     polygon: {
       url: POLYGON_RPC_URL || "",
-      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+      ...(accounts ? { accounts } : {}),
       chainId: 137
     },
     polygonAmoy: {
       url: AMOY_RPC_URL || "",
-      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+      ...(accounts ? { accounts } : {}),
       chainId: 80002
     }
   },
