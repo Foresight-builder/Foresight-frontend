@@ -74,14 +74,14 @@ async function main() {
   if (log) {
     const parsed = iface.parseLog(log);
     console.log("MarketCreated:", {
-      marketId: parsed.args[0].toString(),
-      market: parsed.args[1],
-      templateId: parsed.args[2],
-      creator: parsed.args[3],
-      collateralToken: parsed.args[4],
-      oracle: parsed.args[5],
-      feeBps: parsed.args[6].toString(),
-      resolutionTime: parsed.args[7].toString()
+      marketId: parsed.args.marketId?.toString?.() ?? parsed.args[0].toString(),
+      market: parsed.args.market ?? parsed.args[1],
+      templateId: parsed.args.templateId ?? parsed.args[2],
+      creator: parsed.args.creator ?? parsed.args[3],
+      collateralToken: parsed.args.collateralToken ?? parsed.args[4],
+      oracle: parsed.args.oracle ?? parsed.args[5],
+      feeBps: parsed.args.feeBps?.toString?.() ?? parsed.args[6].toString(),
+      resolutionTime: parsed.args.resolutionTime?.toString?.() ?? parsed.args[7].toString()
     });
   } else {
     console.log("Market created. Tx:", receipt.hash);
