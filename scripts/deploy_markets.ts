@@ -99,11 +99,11 @@ async function createBinaryMarket(mf: any, deployerAddress: string) {
   if (log) {
     const parsed = iface.parseLog(log);
     console.log("MarketCreated (BINARY):", {
-      marketId: parsed.args[0].toString(),
-      market: parsed.args[1],
-      collateralToken: parsed.args[4],
-      feeBps: parsed.args[6].toString(),
-      resolutionTime: parsed.args[7].toString(),
+      marketId: parsed.args.marketId?.toString?.() ?? parsed.args[0].toString(),
+      market: parsed.args.market ?? parsed.args[1],
+      collateralToken: parsed.args.collateralToken ?? parsed.args[4],
+      feeBps: parsed.args.feeBps?.toString?.() ?? parsed.args[6].toString(),
+      resolutionTime: parsed.args.resolutionTime?.toString?.() ?? parsed.args[7].toString(),
     });
   }
 }
@@ -148,13 +148,13 @@ async function createMultiMarket(mf: any, deployerAddress: string) {
   let createdMarket: string | undefined;
   if (log) {
     const parsed = iface.parseLog(log);
-    createdMarket = parsed.args[1];
+    createdMarket = parsed.args.market ?? parsed.args[1];
     console.log("MarketCreated (MULTI):", {
-      marketId: parsed.args[0].toString(),
+      marketId: parsed.args.marketId?.toString?.() ?? parsed.args[0].toString(),
       market: createdMarket,
-      collateralToken: parsed.args[4],
-      feeBps: parsed.args[6].toString(),
-      resolutionTime: parsed.args[7].toString(),
+      collateralToken: parsed.args.collateralToken ?? parsed.args[4],
+      feeBps: parsed.args.feeBps?.toString?.() ?? parsed.args[6].toString(),
+      resolutionTime: parsed.args.resolutionTime?.toString?.() ?? parsed.args[7].toString(),
     });
   }
 
