@@ -65,7 +65,7 @@ export async function POST(req: Request) {
         if (isMissingRelation(error) || isUserIdForeignKeyViolation(error) || isUserIdTypeIntegerError(error)) {
           if (enableFallback) {
             fallbackTriggered = true
-            const local = await getFollowersCount(id)
+            const local = await getFollowersCount(Number(id))
             return [id, local] as const
           } else {
             throw { type: 'setup', error }
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     }))
 
     const counts: Record<number, number> = {}
-    for (const [id, c] of entries) counts[id] = c
+    for (const [id, c] of entries) counts[Number(id)] = c
 
     if (fallbackTriggered) {
       return NextResponse.json({
