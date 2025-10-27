@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/ .next-chatforum/
 /out/
 
 # production
@@ -31,8 +32,7 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-# .env*
-# 注释掉环境变量忽略规则，以便协作者获取配置
+.env*
 
 # vercel
 .vercel
@@ -45,23 +45,5 @@ next-env.d.ts
 /.history/
 /Foresight-frontend.git/
 
-# temporary test files and scripts
-test-*.js
-check-*.js
-*-test.js
-*-check.js
-
-# database maintenance scripts
-*.sql
-/scripts/*.sql
-/scripts/cleanup-*.js
-/scripts/execute-*.js
-
-# temporary data files
-/data/
-*.db
-*.sqlite
-*.sqlite3
-
-# log files
-*.log
+# local data & caches
+/.data/
