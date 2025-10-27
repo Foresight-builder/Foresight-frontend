@@ -12,9 +12,10 @@ if (!fs.existsSync(dataDir)) {
 }
 
 // 创建数据库连接
-let db: Database.Database | null = null;
+type BetterDatabase = InstanceType<typeof Database>
+let db: BetterDatabase | null = null;
 
-export function getDatabase(): Database.Database {
+export function getDatabase(): BetterDatabase {
   if (!db) {
     db = new Database(dbPath);
     
@@ -48,10 +49,8 @@ export function getDatabase(): Database.Database {
     
     // 插入默认分类数据
     const insertCategory = db.prepare('INSERT OR IGNORE INTO categories (name) VALUES (?)');
-    const defaultCategories = ['科技', '娱乐', '时政', '天气', '其他'];
-    defaultCategories.forEach(category => {
-      insertCategory.run(category);
-    });
+    const defaultCategories = ["科技", "娱乐", "时政", "天气"];
+    defaultCategories.forEach((category) => insertCategory.run(category));
     
 
     
