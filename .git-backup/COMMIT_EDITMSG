@@ -1,7 +1,0 @@
-feat: add chat and forum functionality with local storage
-
-- Added local chat storage with SSE streaming API
-- Added forum storage with posts, comments, and voting system
-- Created ChatPanel and ForumSection components
-- Integrated chat and forum into prediction detail page
-- Updated .gitignore to exclude local data files

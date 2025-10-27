@@ -1,2 +1,0 @@
-0000000000000000000000000000000000000000 ec92b5c46754535d15dec10fc667ef5e59e5d814 You-never-walk-alone <3271610744@qq.com> 1761573305 +0800	branch: Created from HEAD
-ec92b5c46754535d15dec10fc667ef5e59e5d814 2d2114996fa778dc36a09dd7ee4e2ea7b70748b7 You-never-walk-alone <3271610744@qq.com> 1761573306 +0800	commit: feat(chat+forum): SSE聊天与论坛API与UI集成，并支持自定义distDir
