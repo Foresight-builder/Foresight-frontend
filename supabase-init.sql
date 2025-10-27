@@ -22,13 +22,12 @@ CREATE TABLE IF NOT EXISTS categories (
   name TEXT UNIQUE NOT NULL
 );
 
--- 插入默认分类数据
+-- 插入默认分类
 INSERT INTO categories (name) VALUES 
   ('科技'),
   ('娱乐'),
   ('时政'),
-  ('天气'),
-  ('其他')
+  ('天气')
 ON CONFLICT (name) DO NOTHING;
 
 
@@ -45,6 +44,15 @@ CREATE TABLE IF NOT EXISTS trending_events (
   followers_count INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 创建事件关注表
+CREATE TABLE IF NOT EXISTS event_follows (
+  id SERIAL PRIMARY KEY,
+  event_id INTEGER NOT NULL,
+  user_id TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(event_id, user_id)
 );
 
 
@@ -107,3 +115,34 @@ INSERT INTO trending_events (title, description, category, image_url, followers_
 CREATE INDEX IF NOT EXISTS idx_predictions_category ON predictions(category);
 CREATE INDEX IF NOT EXISTS idx_predictions_status ON predictions(status);
 CREATE INDEX IF NOT EXISTS idx_trending_events_category ON trending_events(category);
+
+
+-- 迁移修复：移除可能存在的 event_follows.user_id 外键并确保唯一约束
+ALTER TABLE public.event_follows DROP CONSTRAINT IF EXISTS event_follows_user_id_fkey;
+
+-- 尝试删除所有针对 user_id 的外键约束（名称不确定）
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT tc.constraint_name
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu
+      ON tc.constraint_name = kcu.constraint_name
+     AND tc.table_schema = kcu.table_schema
+    WHERE tc.table_schema = 'public'
+      AND tc.table_name = 'event_follows'
+      AND tc.constraint_type = 'FOREIGN KEY'
+      AND kcu.column_name = 'user_id'
+  LOOP
+    EXECUTE format('ALTER TABLE public.event_follows DROP CONSTRAINT IF EXISTS %I;', r.constraint_name);
+  END LOOP;
+END
+$$;
+
+-- 将 user_id 统一为 TEXT 类型
+ALTER TABLE public.event_follows ALTER COLUMN user_id TYPE TEXT;
+
+-- 确保 (user_id, event_id) 唯一约束存在（使用唯一索引）
+CREATE UNIQUE INDEX IF NOT EXISTS event_follows_user_id_event_id_key ON public.event_follows (user_id, event_id);

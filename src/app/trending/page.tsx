@@ -23,6 +23,7 @@ import {
 import TopNavBar from "@/components/TopNavBar";
 import Link from "next/link";
 import { useWallet } from "@/contexts/WalletContext";
+import { followPrediction, unfollowPrediction } from "@/lib/follows";
 
 export default function TrendingPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -168,7 +169,8 @@ export default function TrendingPage() {
   useEffect(() => {
     const fetchCategoryCounts = async () => {
       try {
-        const response = await fetch('/api/categories/counts');
+        const controller = new AbortController();
+        const response = await fetch('/api/categories/counts', { signal: controller.signal });
         if (response.ok) {
           const data = await response.json();
           if (data.success) {
@@ -181,38 +183,66 @@ export default function TrendingPage() {
           }
         }
       } catch (error) {
-        console.error('获取分类热点数量失败:', error);
+        // 忽略主动中止与热更新导致的网络中断
+        if ((error as any)?.name !== 'AbortError') {
+          console.error('获取分类热点数量失败:', error);
+        }
       }
     };
 
     fetchCategoryCounts();
   }, []);
 
-  // 关注/取消关注事件
-  const toggleFollow = (eventIndex: number, event: React.MouseEvent) => {
+  // 关注/取消关注事件（持久化到后端）
+  const toggleFollow = async (eventIndex: number, event: React.MouseEvent) => {
     if (!account) {
       // 如果用户未连接钱包，显示登录提示弹窗
       setShowLoginModal(true);
       return;
     }
-    
-    const isFollowing = followedEvents.has(eventIndex);
-    
+
+    const predictionId = sortedEvents[eventIndex]?.id;
+    if (!predictionId) return;
+
+    const wasFollowing = followedEvents.has(Number(predictionId));
+
     // 创建涟漪效果
     createSmartClickEffect(event);
-    
+    // 立即触发爱心粒子效果，避免等待网络响应导致的延迟
+    createHeartParticles(eventIndex, wasFollowing);
+
+    // 乐观更新本地状态（按事件ID而非索引）
     setFollowedEvents(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(eventIndex)) {
-        newSet.delete(eventIndex);
+      const next = new Set(prev);
+      const pid = Number(predictionId);
+      if (next.has(pid)) {
+        next.delete(pid);
       } else {
-        newSet.add(eventIndex);
+        next.add(pid);
       }
-      return newSet;
+      return next;
     });
-    
-    // 创建粒子效果
-    createHeartParticles(eventIndex, isFollowing);
+
+    try {
+      if (wasFollowing) {
+        await unfollowPrediction(Number(predictionId), account);
+      } else {
+        await followPrediction(Number(predictionId), account);
+      }
+    } catch (err) {
+      console.error('关注/取消关注失败:', err);
+      // 回滚本地状态（按事件ID回滚）
+      setFollowedEvents(prev => {
+        const rollback = new Set(prev);
+        const pid = Number(predictionId);
+        if (wasFollowing) {
+          rollback.add(pid);
+        } else {
+          rollback.delete(pid);
+        }
+        return rollback;
+      });
+    }
   };
 
   // 优雅点击反馈效果
@@ -783,17 +813,46 @@ export default function TrendingPage() {
     fetchPredictions();
   }, []);
 
-  // 将预测事件转换为页面显示格式
+  // 同步服务器关注状态到本地心形按钮（保存为事件ID集合）
+  useEffect(() => {
+    if (!account) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/user-follows?address=${account}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const ids = new Set<number>((data?.follows || []).map((e: any) => Number(e.id)));
+        setFollowedEvents(ids);
+      } catch (err) {
+        console.warn('同步关注状态失败:', err);
+      }
+    })();
+  }, [account]);
+
+  // 将预测事件转换为页面显示格式（包含事件ID以便关注映射）
   const allEvents = predictions.map(prediction => ({
+    id: prediction.id,
     title: prediction.title,
     description: prediction.description,
-    insured: `${prediction.minStake} USDT`,
-    minInvestment: `${prediction.minStake} USDT`,
+    insured: `${prediction.min_stake} USDT`,
+    minInvestment: `${prediction.min_stake} USDT`,
     tag: prediction.category,
     image: prediction.image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(prediction.title)}&size=400&backgroundColor=b6e3f4,c0aede,d1d4f9&radius=20`,
     deadline: prediction.deadline,
     criteria: prediction.criteria
   }));
+
+  // 当分类计数接口不可用时，基于已加载的预测数据进行本地回退计算
+  useEffect(() => {
+    if (predictions.length > 0 && Object.keys(categoryCounts).length === 0) {
+      const counts: Record<string, number> = {};
+      for (const p of predictions) {
+        const cat = p.category || '未分类';
+        counts[cat] = (counts[cat] || 0) + 1;
+      }
+      setCategoryCounts(counts);
+    }
+  }, [predictions]);
 
   // 搜索与类型筛选
   const q = searchQuery.toLowerCase().trim();
@@ -1147,6 +1206,39 @@ export default function TrendingPage() {
           </div>
         </div>
 
+        {/* 我的关注 */}
+        <div className="p-4 border-t border-gray-200/50">
+          {!sidebarCollapsed && (
+            <h3 className="text-sm font-semibold text-black mb-3 uppercase tracking-wide">
+              我的关注
+            </h3>
+          )}
+          <Link href="/my-follows">
+            <motion.div
+              className={`flex items-center p-3 rounded-xl cursor-pointer transition-all duration-300 hover:bg-white/50 bg-gradient-to-r from-purple-100 to-pink-100 border border-purple-200 ${
+                sidebarCollapsed ? "justify-center" : "justify-between"
+              }`}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div className="flex items-center">
+                <Heart className="w-5 h-5 text-purple-600" />
+                {!sidebarCollapsed && (
+                  <div className="ml-3">
+                    <span className="text-black font-medium block">
+                      查看我的关注
+                    </span>
+                    <span className="text-xs text-gray-600">管理关注的事件</span>
+                  </div>
+                )}
+              </div>
+              {!sidebarCollapsed && (
+                <ChevronRight className="w-4 h-4 text-purple-600" />
+              )}
+            </motion.div>
+          </Link>
+        </div>
+
         {/* 未结算事件 */}
         <div className="p-4 border-t border-gray-200/50">
           {!sidebarCollapsed && (
@@ -1457,10 +1549,16 @@ export default function TrendingPage() {
         {/* 数据展示 */}
         {!loading && !error && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sortedEvents.slice(0, displayCount).map((product, i) => (
+            {sortedEvents.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-black text-lg">暂无预测事件数据</p>
+                <p className="text-gray-600 mt-2">请稍后再试或联系管理员</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {sortedEvents.slice(0, displayCount).map((product, i) => (
                 <motion.div
-                  key={predictions[i]?.id || i}
+                  key={sortedEvents[i]?.id || i}
                   className="bg-white/70 rounded-2xl shadow-md border border-white/30 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 relative"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -1479,7 +1577,7 @@ export default function TrendingPage() {
                     className="absolute top-3 left-3 z-10 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-md overflow-hidden"
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
-                    animate={followedEvents.has(i) ? "liked" : "unliked"}
+                    animate={followedEvents.has(Number(sortedEvents[i]?.id)) ? "liked" : "unliked"}
                     variants={{
                       liked: { 
                         backgroundColor: "rgba(239, 68, 68, 0.1)",
@@ -1492,7 +1590,7 @@ export default function TrendingPage() {
                     }}
                   >
                     <motion.div
-                      animate={followedEvents.has(i) ? "liked" : "unliked"}
+                      animate={followedEvents.has(Number(sortedEvents[i]?.id)) ? "liked" : "unliked"}
                       variants={{
                         liked: { 
                           scale: [1, 1.2, 1],
@@ -1509,7 +1607,7 @@ export default function TrendingPage() {
                     >
                       <Heart 
                         className={`w-5 h-5 ${
-                          followedEvents.has(i) 
+                          followedEvents.has(Number(sortedEvents[i]?.id)) 
                             ? 'fill-red-500 text-red-500' 
                             : 'text-gray-500'
                         }`} 
@@ -1518,12 +1616,18 @@ export default function TrendingPage() {
                   </motion.button>
                   
                   {/* 产品图片 */}
-                  <Link href={`/prediction/${predictions[i]?.id || i + 1}`}>
+                  <Link href={`/prediction/${sortedEvents[i]?.id || i + 1}`}>
                     <div className="relative h-48 overflow-hidden">
                       <img
                         src={product.image}
                         alt={product.title}
                         className="w-full h-full object-cover transition-transform hover:scale-105 duration-300"
+                        onError={(e) => {
+                          const img = e.currentTarget as HTMLImageElement;
+                          // 避免无限循环
+                          img.onerror = null;
+                          img.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(product.title)}&size=400&backgroundColor=b6e3f4,c0aede,d1d4f9&radius=20`;
+                        }}
                       />
                       {/* 标签 */}
                       <div className="absolute top-3 right-3 bg-gradient-to-r from-pink-400 to-purple-500 text-white text-sm px-3 py-1 rounded-full">
@@ -1549,7 +1653,7 @@ export default function TrendingPage() {
                       <p className="text-black font-bold">
                         {product.minInvestment} 起投
                       </p>
-                      <Link href={`/prediction/${predictions[i]?.id || i + 1}`}>
+                      <Link href={`/prediction/${sortedEvents[i]?.id || i + 1}`}>
                         <button className="px-4 py-2 bg-gradient-to-r from-pink-400 to-purple-500 text-white rounded-full text-sm font-medium hover:from-pink-500 hover:to-purple-600 transition-all duration-300 shadow-md">
                           参与事件
                         </button>
@@ -1559,12 +1663,6 @@ export default function TrendingPage() {
                 </motion.div>
               ))}
             </div>
-            
-            {/* 空数据状态 */}
-            {sortedEvents.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-black text-lg">暂无保险产品数据</p>
-              </div>
             )}
             
             {/* 加载更多提示 */}

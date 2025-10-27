@@ -55,5 +55,8 @@ export const mockPredictions: Prediction[] = [
 
 // 3. 分类数据（与前端页面保持一致）
 export const categories = [
-  '科技', '娱乐', '时政', '天气', '其他'
+  "科技",
+  "娱乐",
+  "时政",
+  "天气"
 ];

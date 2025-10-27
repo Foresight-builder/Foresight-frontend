@@ -5,6 +5,10 @@ import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Loader2, ArrowUp } from 'lucide-react';
 import { ethers } from 'ethers';
+import { useWallet } from '@/contexts/WalletContext'
+import { getFollowStatus, toggleFollowPrediction } from '@/lib/follows'
+import ChatPanel from '@/components/ChatPanel'
+import ForumSection from '@/components/ForumSection'
 
 interface PredictionDetail {
   id: number;
@@ -47,6 +51,13 @@ export default function PredictionDetailPage() {
   const [staking, setStaking] = useState(false);
   const [stakeError, setStakeError] = useState<string | null>(null);
   const [stakeSuccess, setStakeSuccess] = useState<string | null>(null);
+  
+  // 关注功能相关状态
+  const { account, connectWallet } = useWallet();
+  const [following, setFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [followError, setFollowError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPredictionDetail = async () => {
@@ -102,6 +113,53 @@ export default function PredictionDetailPage() {
   useEffect(() => {
     router.prefetch('/trending');
   }, [router]);
+
+  // 获取关注状态和数量
+  useEffect(() => {
+    const fetchFollowStatus = async () => {
+      if (!params.id) return;
+      
+      try {
+        const status = await getFollowStatus(Number(params.id), account || undefined);
+        setFollowing(!!status.following);
+        setFollowersCount(status.followersCount);
+      } catch (error) {
+        console.error('获取关注状态失败:', error);
+        setFollowError('获取关注状态失败');
+      }
+    };
+
+    fetchFollowStatus();
+  }, [params.id, account]);
+
+  // 处理关注/取消关注
+  const handleToggleFollow = async () => {
+    if (!account) {
+      try {
+        await connectWallet();
+      } catch (error) {
+        setFollowError('钱包连接失败');
+      }
+      return;
+    }
+
+    setFollowLoading(true);
+    setFollowError(null);
+
+    try {
+      const newFollowing = await toggleFollowPrediction(following, Number(params.id), account);
+      setFollowing(newFollowing);
+      
+      // 重新获取关注数量
+      const status = await getFollowStatus(Number(params.id), account);
+      setFollowersCount(status.followersCount);
+    } catch (error) {
+      console.error('关注操作失败:', error);
+      setFollowError('操作失败，请重试');
+    } finally {
+      setFollowLoading(false);
+    }
+  };
 
   // ERC20/合约 ABI（最小化）
   const erc20Abi = [
@@ -332,6 +390,20 @@ export default function PredictionDetailPage() {
                   </span>
                 </div>
                 <h1 className="text-2xl font-bold leading-tight">{prediction.title}</h1>
+                <div className="mt-2 flex items-center gap-3">
+                  <span className="text-sm text-white/90">关注数 {followersCount}</span>
+                  <button
+                    type="button"
+                    onClick={handleToggleFollow}
+                    disabled={followLoading}
+                    className="px-2.5 py-1 rounded-full text-sm font-medium bg-white/20 hover:bg-white/30 text-white disabled:opacity-60"
+                  >
+                    {followLoading ? '处理中…' : (following ? '已关注' : '关注')}
+                  </button>
+                  {followError && (
+                    <span className="text-xs text-yellow-200">{followError}</span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -472,6 +544,12 @@ export default function PredictionDetailPage() {
               )}
             </div>
           )}
+
+          {/* 交流与社区 */}
+          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChatPanel eventId={Number(params.id)} />
+            <ForumSection eventId={Number(params.id)} />
+          </div>
         </div>
         {/* 悬浮回到顶部按钮 */}
         <button

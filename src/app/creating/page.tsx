@@ -93,8 +93,7 @@ export default function CreatingPage() {
     { value: "科技", icon: "💻", color: "from-blue-400 to-cyan-400" },
     { value: "娱乐", icon: "🎬", color: "from-pink-400 to-rose-400" },
     { value: "时政", icon: "🏛️", color: "from-purple-400 to-indigo-400" },
-    { value: "天气", icon: "🌤️", color: "from-green-400 to-emerald-400" },
-    { value: "其他", icon: "🔮", color: "from-orange-400 to-amber-400" },
+    { value: "天气", icon: "🌤️", color: "from-green-400 to-emerald-400" }
   ];
 
   // 计算最小可选日期（一周后）

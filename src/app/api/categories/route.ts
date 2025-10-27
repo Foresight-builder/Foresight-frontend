@@ -1,6 +1,7 @@
 // 分类API路由 - 处理GET请求
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { categories as localCategories } from '@/lib/data';
 
 export async function GET() {
   try {
@@ -10,31 +11,34 @@ export async function GET() {
       .select('*')
       .order('name', { ascending: true });
     
-    if (error) {
-      console.error('获取分类列表失败:', error);
-      return NextResponse.json(
-        { success: false, message: '获取分类列表失败' },
-        { status: 500 }
-      );
+    if (!error && categories) {
+      // 返回分类列表
+      return NextResponse.json({
+        success: true,
+        data: categories,
+        message: '获取分类列表成功'
+      }, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8'
+        }
+      });
     }
-    
-    // 返回分类列表
+
+    // 降级：使用本地分类数据
+    console.error('获取分类列表失败，使用本地降级数据:', error);
     return NextResponse.json({
       success: true,
-      data: categories,
-      message: '获取分类列表成功'
-    }, {
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8'
-      }
+      data: localCategories.map((name, i) => ({ id: i + 1, name })),
+      message: '获取分类列表成功(降级)'
     });
     
   } catch (error) {
-    // 错误处理
-    console.error('获取分类列表失败:', error);
-    return NextResponse.json(
-      { success: false, message: '获取分类列表失败' },
-      { status: 500 }
-    );
+    // 全局异常：直接返回本地分类
+    console.error('获取分类列表失败，使用本地降级数据:', error);
+    return NextResponse.json({
+      success: true,
+      data: localCategories.map((name, i) => ({ id: i + 1, name })),
+      message: '获取分类列表成功(降级)'
+    });
   }
 }

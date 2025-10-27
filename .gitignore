@@ -15,7 +15,7 @@
 
 # next.js
 /.next/
-/ .next-chatforum/
+/.next-chatforum/
 /out/
 
 # production
@@ -45,5 +45,6 @@ next-env.d.ts
 /.history/
 /Foresight-frontend.git/
 
-# local data & caches
+# local data and databases
 /.data/
+/foresight.db
