@@ -45,6 +45,6 @@ next-env.d.ts
 /.history/
 /Foresight-frontend.git/
 
-# local data and databases
+# local data files
 /.data/
-/foresight.db
+*.db
